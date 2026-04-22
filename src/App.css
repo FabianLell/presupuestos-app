@@ -1,0 +1,225 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #111;
+  color: #f0f0f0;
+  min-height: 100vh;
+}
+
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px;
+  background: #1a1a1a;
+  border-right: 1px solid #2a2a2a;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: fixed;
+  height: 100vh;
+}
+
+.sidebar h2 {
+  font-size: 1rem;
+  color: #888;
+  margin-bottom: 1rem;
+  padding-left: 0.5rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sidebar button {
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background 0.15s;
+}
+
+.sidebar button:hover { background: #2a2a2a; color: #fff; }
+.sidebar button.active { background: #2563eb; color: #fff; }
+
+.main-content {
+  margin-left: 220px;
+  flex: 1;
+  padding: 2rem;
+  max-width: 960px;
+}
+
+h1 { font-size: 1.6rem; font-weight: 600; margin-bottom: 1.5rem; }
+h2 { font-size: 1.2rem; font-weight: 500; margin-bottom: 1rem; }
+
+.card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #f0f0f0;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.btn {
+  padding: 0.55rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-danger { background: #dc2626; color: #fff; }
+.btn-secondary { background: #333; color: #ccc; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #2a2a2a;
+  color: #888;
+  font-weight: 500;
+}
+
+td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #1f1f1f;
+}
+
+tr:hover td { background: #1f1f1f; }
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.badge-blue { background: #1e3a5f; color: #60a5fa; }
+.badge-green { background: #14532d; color: #4ade80; }
+
+.total-box {
+  background: #1e3a5f;
+  border: 1px solid #2563eb44;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.total-box span { color: #93c5fd; font-size: 0.9rem; }
+.total-box strong { color: #fff; font-size: 1.1rem; }
+
+.msg-error { color: #f87171; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.msg-ok { color: #4ade80; font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+@media print {
+  .sidebar {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .solo-print {
+    display: block !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11px !important;
+  }
+
+  .card {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    padding: 0.6rem !important;
+    margin-bottom: 0.6rem !important;
+  }
+
+  .total-box {
+    background: #f0f0f0 !important;
+    border: 1px solid #ccc !important;
+    padding: 0.4rem 0.8rem !important;
+  }
+
+  .total-box span,
+  .total-box strong {
+    color: #000 !important;
+  }
+
+  table {
+    font-size: 10px !important;
+  }
+
+  th {
+    color: #444 !important;
+    padding: 0.3rem 0.5rem !important;
+  }
+
+  td {
+    padding: 0.3rem 0.5rem !important;
+  }
+
+  .badge-blue {
+    background: #e0e0e0 !important;
+    color: #333 !important;
+  }
+
+  h2 {
+    font-size: 0.95rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+}
+
+@page {
+  margin: 1.2cm;
+  size: A4;
+}
+
+.solo-print {
+  display: none;
+}
