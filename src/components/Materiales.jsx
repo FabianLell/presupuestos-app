@@ -12,52 +12,57 @@ const UNIDADES = [
   "litro",
 ];
 
-const CATEGORIAS = [
-  "Caños rectangulares",
-  "Caños cuadrados",
-  "Caños redondos",
-  "Perfiles estructurales",
-  "Chapas",
-  "Mallas y desplegado",
-  "Herrajes",
-  "Cerraduras",
-  "Ruedas y roldanas",
-  "Tornillería",
-  "Soldadura",
-  "Pintura",
-  "Hierro redondo",
-  "Insumos generales",
-];
-
 const VACIO = {
   nombre: "",
   descripcion: "",
   unidad: "unidad",
   precio_unitario: "",
-  categoria: "Caños rectangulares",
+  categoria_id: "",
 };
 
 export default function Materiales() {
   const [materiales, setMateriales] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [cargandoCategorias, setCargandoCategorias] = useState(true);
   const [form, setForm] = useState(VACIO);
   const [editId, setEditId] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
 
+  const [mostrarModalCategoria, setMostrarModalCategoria] = useState(false);
+  const [nuevaCategoria, setNuevaCategoria] = useState("");
+  const [guardandoCategoria, setGuardandoCategoria] = useState(false);
+
   useEffect(() => {
     cargar();
+    cargarCategorias();
   }, []);
 
   async function cargar() {
     setCargando(true);
+
     const { data, error } = await supabase
       .from("materiales")
-      .select("*")
+      .select(`*, categorias ( nombre )`)
       .order("nombre");
+
     if (error) setError("Error al cargar materiales");
     else setMateriales(data);
+
     setCargando(false);
+  }
+
+  async function cargarCategorias() {
+    setCargandoCategorias(true);
+
+    const { data } = await supabase
+      .from("categorias")
+      .select("id, nombre")
+      .order("nombre");
+
+    setCategorias(data || []);
+    setCargandoCategorias(false);
   }
 
   function handleChange(e) {
@@ -67,18 +72,20 @@ export default function Materiales() {
   async function guardar() {
     setError("");
     setOk("");
+
     if (!form.nombre.trim()) return setError("El nombre es obligatorio");
     if (!form.precio_unitario || isNaN(form.precio_unitario))
       return setError("El precio debe ser un número");
 
     const userId = await getUserId();
+
     const datos = {
       user_id: userId,
       nombre: form.nombre.trim(),
       descripcion: form.descripcion.trim(),
       unidad: form.unidad,
       precio_unitario: parseFloat(form.precio_unitario),
-      categoria: form.categoria,
+      categoria_id: form.categoria_id || null,
     };
 
     if (editId) {
@@ -86,10 +93,12 @@ export default function Materiales() {
         .from("materiales")
         .update(datos)
         .eq("id", editId);
+
       if (error) return setError("Error al actualizar");
       setOk("Material actualizado");
     } else {
       const { error } = await supabase.from("materiales").insert([datos]);
+
       if (error) return setError("Error al guardar");
       setOk("Material agregado");
     }
@@ -99,14 +108,51 @@ export default function Materiales() {
     cargar();
   }
 
+  async function crearCategoria() {
+    if (!nuevaCategoria.trim()) return;
+
+    setGuardandoCategoria(true);
+
+    const userId = await getUserId();
+
+    const { data, error } = await supabase
+      .from("categorias")
+      .insert([
+        {
+          user_id: userId,
+          nombre: nuevaCategoria.trim(),
+        },
+      ])
+      .select()
+      .single();
+
+    setGuardandoCategoria(false);
+
+    if (error) {
+      alert("Error al crear categoría");
+      return;
+    }
+
+    setCategorias((prev) => [...prev, data]);
+
+    setForm((prev) => ({
+      ...prev,
+      categoria_id: data.id,
+    }));
+
+    setNuevaCategoria("");
+    setMostrarModalCategoria(false);
+  }
+
   function editar(m) {
     setForm({
       nombre: m.nombre,
       descripcion: m.descripcion || "",
       unidad: m.unidad,
       precio_unitario: m.precio_unitario,
-      categoria: m.categoria || "Caños rectangulares",
+      categoria_id: m.categoria_id || "",
     });
+
     setEditId(m.id);
     setError("");
     setOk("");
@@ -115,8 +161,11 @@ export default function Materiales() {
 
   async function eliminar(id) {
     if (!confirm("¿Eliminar este material?")) return;
+
     const { error } = await supabase.from("materiales").delete().eq("id", id);
+
     if (error) return setError("Error al eliminar");
+
     cargar();
   }
 
@@ -165,72 +214,96 @@ export default function Materiales() {
     <>
       <h1>🔩 Materiales</h1>
 
+      {/* FORMULARIO */}
       <div className="card">
         <h2>{editId ? "Editar material" : "Nuevo material"}</h2>
 
         {error && <p className="msg-error">{error}</p>}
         {ok && <p className="msg-ok">{ok}</p>}
 
-        <div className="form-row">
+        <div className="form-block">
+          <div className="form-row" style={{ gridTemplateColumns: "2fr 1fr" }}>
+            <input
+              name="nombre"
+              placeholder="Nombre (ej: Caño 40x20)"
+              value={form.nombre}
+              onChange={handleChange}
+            />
+            <select name="unidad" value={form.unidad} onChange={handleChange}>
+              {UNIDADES.map((u) => (
+                <option key={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-row" style={{ gridTemplateColumns: "2fr auto" }}>
+            <select
+              name="categoria_id"
+              value={form.categoria_id || ""}
+              onChange={handleChange}
+            >
+              <option value="">
+                {cargandoCategorias ? "Cargando..." : "Sin categoría"}
+              </option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ whiteSpace: "nowrap", padding: "0.6rem 1rem" }}
+              onClick={() => setMostrarModalCategoria(true)}
+            >
+              + Nueva
+            </button>
+          </div>
+
           <input
-            name="nombre"
-            placeholder="Nombre (ej: Caño 40x20x1.6)"
-            value={form.nombre}
+            name="descripcion"
+            placeholder="Descripción"
+            value={form.descripcion}
             onChange={handleChange}
           />
-          <select name="unidad" value={form.unidad} onChange={handleChange}>
-            {UNIDADES.map((u) => (
-              <option key={u}>{u}</option>
-            ))}
-          </select>
-        </div>
 
-        <select name="categoria" value={form.categoria} onChange={handleChange}>
-          {CATEGORIAS.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
+          <input
+            name="precio_unitario"
+            type="number"
+            placeholder="Precio unitario ($)"
+            value={form.precio_unitario}
+            onChange={handleChange}
+          />
 
-        <input
-          name="descripcion"
-          placeholder="Descripción opcional"
-          value={form.descripcion}
-          onChange={handleChange}
-        />
-
-        <input
-          name="precio_unitario"
-          type="number"
-          placeholder="Precio unitario ($)"
-          value={form.precio_unitario}
-          onChange={handleChange}
-        />
-
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button className="btn btn-primary" onClick={guardar}>
-            {editId ? "Guardar cambios" : "Agregar material"}
-          </button>
-          {editId && (
-            <button className="btn btn-secondary" onClick={cancelar}>
-              Cancelar
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button className="btn btn-primary" onClick={guardar}>
+              {editId ? "Guardar cambios" : "Agregar material"}
             </button>
-          )}
+
+            {editId && (
+              <button className="btn btn-secondary" onClick={cancelar}>
+                Cancelar
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* LISTADO */}
       <div className="card">
         <h2>Materiales cargados</h2>
+
         {cargando ? (
           <p style={{ color: "#888" }}>Cargando...</p>
         ) : materiales.length === 0 ? (
-          <p style={{ color: "#888" }}>No hay materiales todavía</p>
+          <p style={{ color: "#888" }}>No hay materiales</p>
         ) : (
           <table>
             <thead>
               <tr>
                 <th>Nombre</th>
                 <th>Categoría</th>
-                <th>Descripción</th>
                 <th>Unidad</th>
                 <th>Precio</th>
                 <th></th>
@@ -240,15 +313,8 @@ export default function Materiales() {
               {materiales.map((m) => (
                 <tr key={m.id}>
                   <td>{m.nombre}</td>
-                  <td>
-                    <span className="badge badge-blue">
-                      {m.categoria || "—"}
-                    </span>
-                  </td>
-                  <td style={{ color: "#888" }}>{m.descripcion || "—"}</td>
-                  <td>
-                    <span className="badge badge-blue">{m.unidad}</span>
-                  </td>
+                  <td>{m.categorias?.nombre || "—"}</td>
+                  <td>{m.unidad}</td>
                   <td>
                     ${parseFloat(m.precio_unitario).toLocaleString("es-AR")}
                   </td>
@@ -276,6 +342,38 @@ export default function Materiales() {
           </table>
         )}
       </div>
+
+      {/* MODAL */}
+      {mostrarModalCategoria && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Nueva categoría</h3>
+
+            <input
+              value={nuevaCategoria}
+              onChange={(e) => setNuevaCategoria(e.target.value)}
+              placeholder="Nombre"
+            />
+
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+              <button
+                className="btn btn-primary"
+                onClick={crearCategoria}
+                disabled={guardandoCategoria}
+              >
+                Guardar
+              </button>
+
+              <button
+                className="btn btn-secondary"
+                onClick={() => setMostrarModalCategoria(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

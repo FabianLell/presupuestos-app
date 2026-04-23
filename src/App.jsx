@@ -9,6 +9,7 @@ import Servicios from "./components/Servicios";
 import Clientes from "./components/Clientes";
 import Presupuestos from "./components/Presupuestos";
 import Admin from "./components/Admin";
+import Categorias from "./components/Categorias";
 
 const ADMIN_EMAILS = (
   import.meta.env.VITE_ADMIN_EMAIL || "admin@presupuestos-app.com"
@@ -51,6 +52,16 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setSeccion("categorias");
+
+    window.addEventListener("ir-categorias", handler);
+
+    return () => {
+      window.removeEventListener("ir-categorias", handler);
+    };
   }, []);
 
   async function handleLogout() {
@@ -118,7 +129,7 @@ export default function App() {
         </button>
       </nav>
       <main className="main-content">
-        {seccion === "materiales" && <Materiales />}
+        {seccion === "materiales" && <Materiales setSeccion={setSeccion} />}
         {seccion === "servicios" && <Servicios />}
         {seccion === "clientes" && <Clientes />}
         {seccion === "presupuestos" && <Presupuestos />}
