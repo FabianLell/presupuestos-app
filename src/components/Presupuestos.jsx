@@ -5,23 +5,6 @@ import { supabase, getUserId } from "../supabase";
 
 const HOY = new Date().toISOString().split("T")[0];
 
-const CATEGORIAS = [
-  "Caños rectangulares",
-  "Caños cuadrados",
-  "Caños redondos",
-  "Perfiles estructurales",
-  "Chapas",
-  "Mallas y desplegado",
-  "Herrajes",
-  "Cerraduras",
-  "Ruedas y roldanas",
-  "Tornillería",
-  "Soldadura",
-  "Pintura",
-  "Hierro redondo",
-  "Insumos generales",
-];
-
 const FORM_VACIO = {
   cliente_id: "",
   fecha: HOY,
@@ -29,7 +12,7 @@ const FORM_VACIO = {
   estado: "borrador",
 };
 
-export default function Presupuestos() {
+export default function Presupuestos({ perfil }) {
   const [vista, setVista] = useState("lista");
   const [presupuestos, setPresupuestos] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -48,6 +31,7 @@ export default function Presupuestos() {
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState("");
   const [filtroCliente, setFiltroCliente] = useState("");
+  const [categorias, setCategorias] = useState([]);
   const pdfRef = useRef(null);
 
   useEffect(() => {
@@ -56,19 +40,24 @@ export default function Presupuestos() {
 
   async function cargarTodo() {
     setCargando(true);
-    const [p, c, m, s] = await Promise.all([
+    const [p, c, m, s, cat] = await Promise.all([
       supabase
         .from("presupuestos")
         .select(`*, clientes(nombre, apellido)`)
         .order("created_at", { ascending: false }),
       supabase.from("clientes").select("*").order("apellido"),
-      supabase.from("materiales").select("*").order("nombre"),
+      supabase
+        .from("materiales")
+        .select("*, categorias(nombre)")
+        .order("nombre"),
       supabase.from("servicios").select("*").order("nombre"),
+      supabase.from("categorias").select("id, nombre").order("nombre"),
     ]);
     if (p.data) setPresupuestos(p.data);
     if (c.data) setClientes(c.data);
     if (m.data) setMateriales(m.data);
     if (s.data) setServicios(s.data);
+    if (cat.data) setCategorias(cat.data);
     setCargando(false);
   }
 
@@ -302,6 +291,14 @@ export default function Presupuestos() {
     setVista("lista");
   }
 
+  async function descargarPDFDesdeLista(id) {
+    await cargarDetalle(id);
+    setTimeout(async () => {
+      await generarPDF();
+      setVista("lista");
+    }, 500);
+  }
+
   async function eliminarPresupuesto(id) {
     if (!confirm("¿Eliminar este presupuesto?")) return;
     await supabase.from("presupuestos").delete().eq("id", id);
@@ -358,6 +355,24 @@ export default function Presupuestos() {
       >
         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+    );
+  }
+
+  function IconoPDF() {
+    return (
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="12" y1="18" x2="12" y2="12" />
+        <line x1="9" y1="15" x2="15" y2="15" />
       </svg>
     );
   }
@@ -451,11 +466,57 @@ export default function Presupuestos() {
             <div
               style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}
             >
-              <img
-                src="/logo.png"
-                alt="Logo"
-                style={{ height: "80px", objectFit: "contain" }}
-              />
+              {perfil?.logo_url ? (
+                <img
+                  src={perfil.logo_url}
+                  alt="Logo"
+                  style={{ height: "80px", objectFit: "contain" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      borderRadius: "50%",
+                      background: "#2563eb",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1.3rem",
+                      fontWeight: "700",
+                      color: "#fff",
+                    }}
+                  >
+                    {(perfil?.nombre_taller || "?")
+                      .trim()
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((p) => p[0])
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+                  {perfil?.nombre_taller && (
+                    <p
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "#333",
+                        textAlign: "center",
+                      }}
+                    >
+                      {perfil.nombre_taller}
+                    </p>
+                  )}
+                </div>
+              )}
               <div
                 style={{
                   color: "#333",
@@ -463,9 +524,10 @@ export default function Presupuestos() {
                   lineHeight: "1.7",
                 }}
               >
-                <p>CUIL: 23-29988122-9</p>
-                <p>El Aguaribay 995</p>
-                <p>Tel: 343 5 333 321</p>
+                {perfil?.cuil_cuit && <p>CUIL: {perfil.cuil_cuit}</p>}
+                {perfil?.direccion && <p>{perfil.direccion}</p>}
+                {perfil?.telefono && <p>Tel: {perfil.telefono}</p>}
+                {perfil?.email_contacto && <p>{perfil.email_contacto}</p>}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -530,7 +592,7 @@ export default function Presupuestos() {
           </div>
         </div>
 
-        <div className="card no-print">
+        <div className="card no-print" style={{ borderColor: "#3a3a3a" }}>
           <h2>Cliente</h2>
           {cliente ? (
             <p>
@@ -626,10 +688,17 @@ export default function Presupuestos() {
 
         <div
           className="total-box"
-          style={{ fontSize: "1.1rem", marginTop: "1rem" }}
+          style={{
+            fontSize: "1.2rem",
+            marginTop: "1rem",
+            borderColor: "#2563eb",
+            background: "#1e3a5f",
+          }}
         >
-          <span>TOTAL GENERAL</span>
-          <strong>${parseFloat(p.total).toLocaleString("es-AR")}</strong>
+          <span style={{ color: "#93c5fd" }}>TOTAL GENERAL</span>
+          <strong style={{ color: "#fff", fontSize: "1.3rem" }}>
+            ${parseFloat(p.total).toLocaleString("es-AR")}
+          </strong>
         </div>
 
         <div
@@ -642,12 +711,7 @@ export default function Presupuestos() {
             fontSize: "0.85rem",
           }}
         >
-          <p>
-            EL PRESENTE TIENE VALIDEZ POR 30 DIAS. PASANDO ESOS DIAS SE
-            ACTUALIZARÁ EL COSTO SEGÚN PORCENTAJE DE INFLACIÓN. LO QUE NO SE
-            HAYA PRESUPUESTADO Y APAREZCA CON POSTERIORIDAD EN EL TRABAJO, SERÁ
-            ANEXADO OPORTUNAMENTE.
-          </p>
+          <p>{perfil?.leyenda_presupuesto || ""}</p>
         </div>
 
         <div
@@ -677,18 +741,64 @@ export default function Presupuestos() {
             <div
               style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}
             >
-              <img
-                src="/logo.png"
-                alt="Logo"
-                style={{ height: "80px", objectFit: "contain" }}
-                crossOrigin="anonymous"
-              />
+              {perfil?.logo_url ? (
+                <img
+                  src={perfil.logo_url}
+                  alt="Logo"
+                  style={{ height: "80px", objectFit: "contain" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      borderRadius: "50%",
+                      background: "#2563eb",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1.3rem",
+                      fontWeight: "700",
+                      color: "#fff",
+                    }}
+                  >
+                    {(perfil?.nombre_taller || "?")
+                      .trim()
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((p) => p[0])
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+                  {perfil?.nombre_taller && (
+                    <p
+                      style={{
+                        fontSize: "0.85rem",
+                        fontWeight: "600",
+                        color: "#333",
+                        textAlign: "center",
+                      }}
+                    >
+                      {perfil.nombre_taller}
+                    </p>
+                  )}
+                </div>
+              )}
               <div
                 style={{ fontSize: "12px", lineHeight: "1.8", color: "#333" }}
               >
-                <p>CUIL: 23-29988122-9</p>
-                <p>El Aguaribay 995</p>
-                <p>Tel: 343 5 333 321</p>
+                {perfil?.cuil_cuit && <p>CUIL: {perfil.cuil_cuit}</p>}
+                {perfil?.direccion && <p>{perfil.direccion}</p>}
+                {perfil?.telefono && <p>Tel: {perfil.telefono}</p>}
+                {perfil?.email_contacto && <p>{perfil.email_contacto}</p>}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
@@ -998,12 +1108,7 @@ export default function Presupuestos() {
               color: "#666",
             }}
           >
-            <p>
-              EL PRESENTE TIENE VALIDEZ DE 30 DIAS. PASADOS ESOS DIAS SE
-              ACTUALIZARÁ EL COSTO SEGÚN PORCENTAJE DE INFLACIÓN. LO QUE NO SE
-              HAYA PRESUPUESTADO Y APAREZCA CON POSTERIORIDAD EN EL TRABAJO,
-              SERÁ ANEXADO OPORTUNAMENTE.
-            </p>
+            <p>{perfil?.leyenda_presupuesto || ""}</p>
           </div>
         </div>
       </>
@@ -1087,8 +1192,10 @@ export default function Presupuestos() {
               }}
             >
               <option value="">— Todas las categorías —</option>
-              {CATEGORIAS.map((c) => (
-                <option key={c}>{c}</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.nombre}>
+                  {c.nombre}
+                </option>
               ))}
             </select>
           </div>
@@ -1096,7 +1203,9 @@ export default function Presupuestos() {
             <select value={matSel} onChange={(e) => setMatSel(e.target.value)}>
               <option value="">— Seleccioná un material —</option>
               {materiales
-                .filter((m) => !categoriaSel || m.categoria === categoriaSel)
+                .filter(
+                  (m) => !categoriaSel || m.categorias?.nombre === categoriaSel,
+                )
                 .map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nombre} — $
@@ -1264,10 +1373,17 @@ export default function Presupuestos() {
         {(itemsMat.length > 0 || itemsSer.length > 0) && (
           <div
             className="total-box"
-            style={{ fontSize: "1.1rem", marginBottom: "1.5rem" }}
+            style={{
+              fontSize: "1.2rem",
+              marginTop: "1rem",
+              borderColor: "#2563eb",
+              background: "#1e3a5f",
+            }}
           >
-            <span>TOTAL GENERAL</span>
-            <strong>${totalGen.toLocaleString("es-AR")}</strong>
+            <span style={{ color: "#93c5fd" }}>TOTAL GENERAL</span>
+            <strong style={{ color: "#fff", fontSize: "1.3rem" }}>
+              ${totalGen.toLocaleString("es-AR")}
+            </strong>
           </div>
         )}
 
@@ -1328,11 +1444,8 @@ export default function Presupuestos() {
           <table>
             <thead>
               <tr>
-                <th>N°</th>
                 <th>Cliente</th>
                 <th>Fecha</th>
-                <th>Total mat.</th>
-                <th>Total ser.</th>
                 <th>Estado</th>
                 <th>Total</th>
                 <th></th>
@@ -1347,40 +1460,40 @@ export default function Presupuestos() {
                 </tr>
               ) : (
                 presupuestosFiltrados.map((p) => (
-                  <tr key={p.id}>
-                    <td style={{ color: "#888", fontSize: "0.85rem" }}>
-                      #{p.numero}
-                    </td>
+                  <tr
+                    key={p.id}
+                    onClick={() => cargarDetalle(p.id)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>
                       {p.clientes ? (
-                        <strong>
-                          {p.clientes.apellido}, {p.clientes.nombre}
-                        </strong>
+                        <div>
+                          <strong>
+                            {p.clientes.apellido}, {p.clientes.nombre}
+                          </strong>
+                          <div style={{ fontSize: "0.8rem", color: "#888" }}>
+                            #{p.numero}
+                          </div>
+                        </div>
                       ) : (
                         <span style={{ color: "#888" }}>—</span>
                       )}
                     </td>
                     <td>{p.fecha}</td>
-                    <td>
-                      ${parseFloat(p.total_materiales).toLocaleString("es-AR")}
-                    </td>
-                    <td>
-                      ${parseFloat(p.total_servicios).toLocaleString("es-AR")}
-                    </td>
                     <td>{badgeEstado(p.estado)}</td>
                     <td>
                       <strong>
                         ${parseFloat(p.total).toLocaleString("es-AR")}
                       </strong>
                     </td>
-                    <td>
-                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: "flex", gap: "0.25rem" }}>
                         <button
                           className="btn btn-secondary"
-                          title="Ver"
-                          onClick={() => cargarDetalle(p.id)}
+                          title="Descargar PDF"
+                          onClick={() => descargarPDFDesdeLista(p.id)}
                         >
-                          <IconoVer />
+                          <IconoPDF />
                         </button>
                         <button
                           className="btn btn-secondary"

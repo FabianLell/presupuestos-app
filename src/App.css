@@ -254,7 +254,7 @@ td {
 }
 
 td:last-child {
-  width: 80px;
+  width: 120px;
   white-space: nowrap;
   overflow: visible;
 }
@@ -370,10 +370,41 @@ tr:hover td {
 
   .main-content {
     margin-left: 0 !important;
+    padding: 0 !important;
   }
 
   body {
     background: #fff !important;
+    color: #000 !important;
+  }
+
+  .card {
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    color: #000 !important;
+  }
+
+  .total-box {
+    background: #f0f0f0 !important;
+    color: #000 !important;
+  }
+
+  .total-box span,
+  .total-box strong {
+    color: #000 !important;
+  }
+
+  .badge-blue {
+    background: #e0e0e0 !important;
+    color: #333 !important;
+  }
+
+  h1,
+  h2,
+  h3,
+  p,
+  td,
+  th {
     color: #000 !important;
   }
 }
@@ -406,4 +437,35 @@ tr:hover td {
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
   margin-bottom: 0;
+}
+
+.no-print p {
+  line-height: 1.6;
+}
+
+.no-print .total-box span {
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+}
+
+.solo-print {
+  display: none;
+}
+
+.no-print {
+  display: block;
+}
+
+@media print {
+  .solo-print {
+    display: block !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+td .btn {
+  padding: 0.45rem 0.6rem;
 }

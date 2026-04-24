@@ -33,6 +33,7 @@ export default function Materiales() {
   const [mostrarModalCategoria, setMostrarModalCategoria] = useState(false);
   const [nuevaCategoria, setNuevaCategoria] = useState("");
   const [guardandoCategoria, setGuardandoCategoria] = useState(false);
+  const [errorCategoria, setErrorCategoria] = useState("");
 
   useEffect(() => {
     cargar();
@@ -110,37 +111,34 @@ export default function Materiales() {
 
   async function crearCategoria() {
     if (!nuevaCategoria.trim()) return;
-
+    setErrorCategoria("");
     setGuardandoCategoria(true);
 
     const userId = await getUserId();
 
     const { data, error } = await supabase
       .from("categorias")
-      .insert([
-        {
-          user_id: userId,
-          nombre: nuevaCategoria.trim(),
-        },
-      ])
+      .insert([{ user_id: userId, nombre: nuevaCategoria.trim() }])
       .select()
       .single();
 
     setGuardandoCategoria(false);
 
     if (error) {
-      alert("Error al crear categoría");
+      if (error.code === "23505") {
+        setErrorCategoria("Ya existe una categoría con ese nombre");
+      } else {
+        setErrorCategoria("Error al crear la categoría");
+      }
       return;
     }
 
-    setCategorias((prev) => [...prev, data]);
-
-    setForm((prev) => ({
-      ...prev,
-      categoria_id: data.id,
-    }));
-
+    setCategorias((prev) =>
+      [...prev, data].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    );
+    setForm((prev) => ({ ...prev, categoria_id: data.id }));
     setNuevaCategoria("");
+    setErrorCategoria("");
     setMostrarModalCategoria(false);
   }
 
@@ -348,25 +346,34 @@ export default function Materiales() {
         <div className="modal-overlay">
           <div className="modal">
             <h3>Nueva categoría</h3>
-
+            {errorCategoria && (
+              <p className="msg-error" style={{ marginTop: "0.5rem" }}>
+                {errorCategoria}
+              </p>
+            )}
             <input
               value={nuevaCategoria}
-              onChange={(e) => setNuevaCategoria(e.target.value)}
+              onChange={(e) => {
+                setNuevaCategoria(e.target.value);
+                setErrorCategoria("");
+              }}
               placeholder="Nombre"
+              onKeyDown={(e) => e.key === "Enter" && crearCategoria()}
             />
-
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
               <button
                 className="btn btn-primary"
                 onClick={crearCategoria}
                 disabled={guardandoCategoria}
               >
-                Guardar
+                {guardandoCategoria ? "Guardando..." : "Guardar"}
               </button>
-
               <button
                 className="btn btn-secondary"
-                onClick={() => setMostrarModalCategoria(false)}
+                onClick={() => {
+                  setMostrarModalCategoria(false);
+                  setErrorCategoria("");
+                }}
               >
                 Cancelar
               </button>

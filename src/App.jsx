@@ -9,7 +9,7 @@ import Servicios from "./components/Servicios";
 import Clientes from "./components/Clientes";
 import Presupuestos from "./components/Presupuestos";
 import Admin from "./components/Admin";
-import Categorias from "./components/Categorias";
+import Perfil from "./components/Perfil";
 
 const ADMIN_EMAILS = (
   import.meta.env.VITE_ADMIN_EMAIL || "admin@presupuestos-app.com"
@@ -23,7 +23,6 @@ const SECCIONES = [
   { id: "clientes", label: "👤 Clientes" },
   { id: "materiales", label: "🔩 Materiales" },
   { id: "servicios", label: "🔧 Servicios" },
-  { id: "admin", label: "🛡️ Admin" },
 ];
 
 export default function App() {
@@ -32,6 +31,7 @@ export default function App() {
   const [cargando, setCargando] = useState(true);
   const [resetMode, setResetMode] = useState(false);
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
+  const [perfil, setPerfil] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -43,26 +43,26 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (event === "PASSWORD_RECOVERY") {
-        setResetMode(true);
-      }
-      if (event === "SIGNED_IN") {
-        setMostrarRegistro(false);
-      }
+      if (event === "PASSWORD_RECOVERY") setResetMode(true);
+      if (event === "SIGNED_IN") setMostrarRegistro(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    const handler = () => setSeccion("categorias");
+    if (session) cargarPerfil();
+    else setPerfil(null);
+  }, [session]);
 
-    window.addEventListener("ir-categorias", handler);
-
-    return () => {
-      window.removeEventListener("ir-categorias", handler);
-    };
-  }, []);
+  async function cargarPerfil() {
+    const { data } = await supabase
+      .from("perfil")
+      .select("*")
+      .eq("user_id", session.user.id)
+      .single();
+    setPerfil(data || null);
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -86,33 +86,103 @@ export default function App() {
   if (resetMode) return <ResetPassword onDone={() => setResetMode(false)} />;
 
   if (!session) {
-    if (mostrarRegistro) {
+    if (mostrarRegistro)
       return <Registro onBackToLogin={() => setMostrarRegistro(false)} />;
-    }
     return <Login onShowRegistro={() => setMostrarRegistro(true)} />;
   }
 
   const sessionEmail = (session?.user?.email || "").trim().toLowerCase();
   const isAdmin = ADMIN_EMAILS.includes(sessionEmail);
   const nombreTaller =
-    session?.user?.user_metadata?.nombre_taller || "Mi taller";
-  const secciones = isAdmin
-    ? SECCIONES
-    : SECCIONES.filter((s) => s.id !== "admin");
+    perfil?.nombre_taller ||
+    session?.user?.user_metadata?.nombre_taller ||
+    "Mi taller";
+
+  function LogoTaller() {
+    if (perfil?.logo_url) {
+      return (
+        <img
+          src={perfil.logo_url}
+          alt="Logo"
+          style={{
+            width: "56px",
+            height: "56px",
+            objectFit: "contain",
+            borderRadius: "8px",
+            background: "#222",
+            padding: "3px",
+          }}
+        />
+      );
+    }
+    const palabras = nombreTaller.trim().split(" ");
+    const iniciales =
+      palabras.length >= 2
+        ? palabras[0][0] + palabras[1][0]
+        : palabras[0].slice(0, 2);
+    return (
+      <div
+        style={{
+          width: "56px",
+          height: "56px",
+          borderRadius: "50%",
+          background: "#2563eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "1.2rem",
+          fontWeight: "700",
+          color: "#fff",
+          letterSpacing: "0.05em",
+          flexShrink: 0,
+        }}
+      >
+        {iniciales.toUpperCase()}
+      </div>
+    );
+  }
 
   return (
     <div className="app">
       <nav className="sidebar">
-        <h2
+        <div
           style={{
-            fontSize: "0.9rem",
-            wordBreak: "break-word",
-            lineHeight: "1.4",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginBottom: "0.5rem",
           }}
         >
-          {nombreTaller}
-        </h2>
-        {secciones.map((s) => (
+          <LogoTaller />
+          <p
+            style={{
+              color: "#fff",
+              fontSize: "0.85rem",
+              fontWeight: "500",
+              textAlign: "center",
+              wordBreak: "break-word",
+              lineHeight: "1.3",
+            }}
+          >
+            {nombreTaller}
+          </p>
+          <button
+            className={seccion === "perfil" ? "active" : ""}
+            onClick={() => setSeccion("perfil")}
+            style={{
+              fontSize: "0.8rem",
+              padding: "0.35rem 0.75rem",
+              width: "auto",
+            }}
+          >
+            ⚙️ Editar perfil
+          </button>
+        </div>
+
+        <div style={{ borderTop: "1px solid #2a2a2a", margin: "0.5rem 0" }} />
+
+        {SECCIONES.map((s) => (
           <button
             key={s.id}
             className={seccion === s.id ? "active" : ""}
@@ -121,18 +191,35 @@ export default function App() {
             {s.label}
           </button>
         ))}
-        <button
-          onClick={handleLogout}
-          style={{ marginTop: "auto", color: "#f87171" }}
-        >
+
+        {isAdmin && (
+          <button
+            className={seccion === "admin" ? "active" : ""}
+            onClick={() => setSeccion("admin")}
+          >
+            🛡️ Admin
+          </button>
+        )}
+
+        <div
+          style={{
+            borderTop: "1px solid #2a2a2a",
+            margin: "0.5rem 0",
+            marginTop: "auto",
+          }}
+        />
+
+        <button onClick={handleLogout} style={{ color: "#f87171" }}>
           🚪 Cerrar sesión
         </button>
       </nav>
+
       <main className="main-content">
-        {seccion === "materiales" && <Materiales setSeccion={setSeccion} />}
+        {seccion === "presupuestos" && <Presupuestos perfil={perfil} />}
+        {seccion === "materiales" && <Materiales />}
         {seccion === "servicios" && <Servicios />}
         {seccion === "clientes" && <Clientes />}
-        {seccion === "presupuestos" && <Presupuestos />}
+        {seccion === "perfil" && <Perfil onPerfilActualizado={cargarPerfil} />}
         {isAdmin && seccion === "admin" && <Admin />}
       </main>
     </div>
