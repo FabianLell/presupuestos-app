@@ -35,6 +35,12 @@ export default function Materiales() {
   const [guardandoCategoria, setGuardandoCategoria] = useState(false);
   const [errorCategoria, setErrorCategoria] = useState("");
 
+  const [mostrarGestionCategorias, setMostrarGestionCategorias] =
+    useState(false);
+  const [editCategoria, setEditCategoria] = useState(null);
+  const [formCategoria, setFormCategoria] = useState({ nombre: "" });
+  const [okCategoria, setOkCategoria] = useState("");
+
   useEffect(() => {
     cargar();
     cargarCategorias();
@@ -140,6 +146,63 @@ export default function Materiales() {
     setNuevaCategoria("");
     setErrorCategoria("");
     setMostrarModalCategoria(false);
+  }
+
+  async function guardarCategoria() {
+    setErrorCategoria("");
+    setOkCategoria("");
+    if (!formCategoria.nombre.trim())
+      return setErrorCategoria("El nombre es obligatorio");
+
+    const userId = await getUserId();
+
+    if (editCategoria) {
+      const { error } = await supabase
+        .from("categorias")
+        .update({ nombre: formCategoria.nombre.trim(), user_id: userId })
+        .eq("id", editCategoria.id);
+      if (error) {
+        if (error.code === "23505")
+          setErrorCategoria("Ya existe una categoría con ese nombre");
+        else setErrorCategoria("Error al actualizar");
+        return;
+      }
+      setOkCategoria("Categoría actualizada");
+    } else {
+      const { data, error } = await supabase
+        .from("categorias")
+        .insert([{ user_id: userId, nombre: formCategoria.nombre.trim() }])
+        .select()
+        .single();
+      if (error) {
+        if (error.code === "23505")
+          setErrorCategoria("Ya existe una categoría con ese nombre");
+        else setErrorCategoria("Error al guardar");
+        return;
+      }
+      setCategorias((prev) =>
+        [...prev, data].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+      );
+      setOkCategoria("Categoría agregada");
+    }
+
+    setFormCategoria({ nombre: "" });
+    setEditCategoria(null);
+    cargarCategorias();
+  }
+
+  function editarCategoria(c) {
+    setEditCategoria(c);
+    setFormCategoria({ nombre: c.nombre });
+    setErrorCategoria("");
+    setOkCategoria("");
+  }
+
+  async function eliminarCategoria(id) {
+    if (!confirm("¿Eliminar esta categoría?")) return;
+    const { error } = await supabase.from("categorias").delete().eq("id", id);
+    if (error) return setErrorCategoria("Error al eliminar");
+    setCategorias((prev) => prev.filter((c) => c.id !== id));
   }
 
   function editar(m) {
@@ -290,7 +353,28 @@ export default function Materiales() {
 
       {/* LISTADO */}
       <div className="card">
-        <h2>Materiales cargados</h2>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1rem",
+          }}
+        >
+          <h2 style={{ margin: 0 }}>Materiales cargados</h2>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              setMostrarGestionCategorias(true);
+              setErrorCategoria("");
+              setOkCategoria("");
+              setFormCategoria({ nombre: "" });
+              setEditCategoria(null);
+            }}
+          >
+            🏷️ Categorías
+          </button>
+        </div>
 
         {cargando ? (
           <p style={{ color: "#888" }}>Cargando...</p>
@@ -378,6 +462,131 @@ export default function Materiales() {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL GESTIÓN CATEGORÍAS */}
+      {mostrarGestionCategorias && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ width: "480px", maxWidth: "95%" }}>
+            <h3 style={{ margin: 0, marginBottom: "1rem" }}>
+              🏷️ Gestionar categorías
+            </h3>
+
+            {errorCategoria && <p className="msg-error">{errorCategoria}</p>}
+            {okCategoria && <p className="msg-ok">{okCategoria}</p>}
+
+            <div
+              style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}
+            >
+              <input
+                placeholder={
+                  editCategoria ? "Editar nombre..." : "Nueva categoría..."
+                }
+                value={formCategoria.nombre}
+                onChange={(e) => {
+                  setFormCategoria({ nombre: e.target.value });
+                  setErrorCategoria("");
+                  setOkCategoria("");
+                }}
+                onKeyDown={(e) => e.key === "Enter" && guardarCategoria()}
+                style={{ margin: 0 }}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={guardarCategoria}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {editCategoria ? "Guardar" : "+ Agregar"}
+              </button>
+              {editCategoria && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setEditCategoria(null);
+                    setFormCategoria({ nombre: "" });
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {categorias.length === 0 ? (
+              <p style={{ color: "#888", fontSize: "0.9rem" }}>
+                No hay categorías todavía
+              </p>
+            ) : (
+              <table>
+                <tbody>
+                  {categorias.map((c) => (
+                    <tr key={c.id}>
+                      <td
+                        style={{
+                          color:
+                            editCategoria?.id === c.id ? "#60a5fa" : "#f0f0f0",
+                        }}
+                      >
+                        {c.nombre}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: "0.4rem" }}>
+                          <button
+                            className="btn btn-secondary"
+                            title="Editar"
+                            onClick={() => editarCategoria(c)}
+                          >
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            title="Eliminar"
+                            onClick={() => eliminarCategoria(c.id)}
+                          >
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <button
+              className="btn btn-secondary"
+              style={{ width: "100%", marginTop: "1rem" }}
+              onClick={() => {
+                setMostrarGestionCategorias(false);
+                setEditCategoria(null);
+                setFormCategoria({ nombre: "" });
+                setErrorCategoria("");
+                setOkCategoria("");
+              }}
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

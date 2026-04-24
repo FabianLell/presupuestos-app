@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 
 export default function Registro({ onBackToLogin }) {
-  const [nombreTaller, setNombreTaller] = useState("");
+  const [nombreNegocio, setNombreNegocio] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmar, setConfirmar] = useState("");
@@ -15,7 +15,7 @@ export default function Registro({ onBackToLogin }) {
     setError("");
     setOk("");
 
-    if (!nombreTaller.trim() || !email.trim() || !password || !confirmar) {
+    if (!nombreNegocio.trim() || !email.trim() || !password || !confirmar) {
       return setError("Completá todos los campos");
     }
     if (password.length < 6) {
@@ -31,7 +31,7 @@ export default function Registro({ onBackToLogin }) {
       password,
       options: {
         data: {
-          nombre_taller: nombreTaller.trim(),
+          nombre_negocio: nombreNegocio.trim(),
         },
       },
     });
@@ -83,7 +83,7 @@ export default function Registro({ onBackToLogin }) {
           />
           <h2 style={{ margin: 0 }}>Crear cuenta nueva</h2>
           <p style={{ color: "#888", fontSize: "0.9rem", marginTop: "0.5rem" }}>
-            Registrá tu taller para empezar a usar la app
+            Registrá tu negocio para empezar a usar la app
           </p>
         </div>
 
@@ -92,9 +92,9 @@ export default function Registro({ onBackToLogin }) {
 
         <input
           type="text"
-          placeholder="Nombre del taller"
-          value={nombreTaller}
-          onChange={(e) => setNombreTaller(e.target.value)}
+          placeholder="Nombre del negocio"
+          value={nombreNegocio}
+          onChange={(e) => setNombreNegocio(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleRegistro()}
         />
         <input

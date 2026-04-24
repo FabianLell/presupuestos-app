@@ -495,7 +495,7 @@ export default function Presupuestos({ perfil }) {
                       color: "#fff",
                     }}
                   >
-                    {(perfil?.nombre_taller || "?")
+                    {(perfil?.nombre_negocio || "?")
                       .trim()
                       .split(" ")
                       .slice(0, 2)
@@ -503,7 +503,7 @@ export default function Presupuestos({ perfil }) {
                       .join("")
                       .toUpperCase()}
                   </div>
-                  {perfil?.nombre_taller && (
+                  {perfil?.nombre_negocio && (
                     <p
                       style={{
                         fontSize: "0.85rem",
@@ -512,7 +512,7 @@ export default function Presupuestos({ perfil }) {
                         textAlign: "center",
                       }}
                     >
-                      {perfil.nombre_taller}
+                      {perfil.nombre_negocio}
                     </p>
                   )}
                 </div>
@@ -770,7 +770,7 @@ export default function Presupuestos({ perfil }) {
                       color: "#fff",
                     }}
                   >
-                    {(perfil?.nombre_taller || "?")
+                    {(perfil?.nombre_negocio || "?")
                       .trim()
                       .split(" ")
                       .slice(0, 2)
@@ -778,7 +778,7 @@ export default function Presupuestos({ perfil }) {
                       .join("")
                       .toUpperCase()}
                   </div>
-                  {perfil?.nombre_taller && (
+                  {perfil?.nombre_negocio && (
                     <p
                       style={{
                         fontSize: "0.85rem",
@@ -787,7 +787,7 @@ export default function Presupuestos({ perfil }) {
                         textAlign: "center",
                       }}
                     >
-                      {perfil.nombre_taller}
+                      {perfil.nombre_negocio}
                     </p>
                   )}
                 </div>

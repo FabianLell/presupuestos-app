@@ -93,12 +93,12 @@ export default function App() {
 
   const sessionEmail = (session?.user?.email || "").trim().toLowerCase();
   const isAdmin = ADMIN_EMAILS.includes(sessionEmail);
-  const nombreTaller =
-    perfil?.nombre_taller ||
-    session?.user?.user_metadata?.nombre_taller ||
-    "Mi taller";
+  const nombreNegocio =
+    perfil?.nombre_negocio ||
+    session?.user?.user_metadata?.nombre_negocio ||
+    "Mi negocio";
 
-  function LogoTaller() {
+  function LogoNegocio() {
     if (perfil?.logo_url) {
       return (
         <img
@@ -115,7 +115,7 @@ export default function App() {
         />
       );
     }
-    const palabras = nombreTaller.trim().split(" ");
+    const palabras = nombreNegocio.trim().split(" ");
     const iniciales =
       palabras.length >= 2
         ? palabras[0][0] + palabras[1][0]
@@ -154,7 +154,7 @@ export default function App() {
             marginBottom: "0.5rem",
           }}
         >
-          <LogoTaller />
+          <LogoNegocio />
           <p
             style={{
               color: "#fff",
@@ -165,7 +165,7 @@ export default function App() {
               lineHeight: "1.3",
             }}
           >
-            {nombreTaller}
+            {nombreNegocio}
           </p>
           <button
             className={seccion === "perfil" ? "active" : ""}

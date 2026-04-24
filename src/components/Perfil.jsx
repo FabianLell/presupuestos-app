@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase, getUserId } from "../supabase";
 
 const VACIO = {
-  nombre_taller: "",
+  nombre_negocio: "",
   direccion: "",
   telefono: "",
   cuil_cuit: "",
@@ -79,8 +79,8 @@ export default function Perfil({ onPerfilActualizado }) {
   async function guardar() {
     setError("");
     setOk("");
-    if (!form.nombre_taller?.trim()) {
-      return setError("El nombre del taller es obligatorio");
+    if (!form.nombre_negocio?.trim()) {
+      return setError("El Nombre del negocio es obligatorio");
     }
 
     setGuardando(true);
@@ -88,7 +88,7 @@ export default function Perfil({ onPerfilActualizado }) {
 
     const datos = {
       user_id: userId,
-      nombre_taller: form.nombre_taller.trim(),
+      nombre_negocio: form.nombre_negocio.trim(),
       direccion: form.direccion?.trim() || null,
       telefono: form.telefono?.trim() || null,
       cuil_cuit: form.cuil_cuit?.trim() || null,
@@ -148,7 +148,7 @@ export default function Perfil({ onPerfilActualizado }) {
       <h1>⚙️ Mi perfil</h1>
 
       <div className="card">
-        <h2>Logo del taller</h2>
+        <h2>Logo del negocio</h2>
 
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           {form.logo_url ? (
@@ -165,7 +165,7 @@ export default function Perfil({ onPerfilActualizado }) {
               }}
             />
           ) : (
-            <Iniciales nombre={form.nombre_taller} />
+            <Iniciales nombre={form.nombre_negocio} />
           )}
 
           <div
@@ -202,16 +202,16 @@ export default function Perfil({ onPerfilActualizado }) {
       </div>
 
       <div className="card">
-        <h2>Datos del taller</h2>
+        <h2>Datos del negocio</h2>
 
         {error && <p className="msg-error">{error}</p>}
         {ok && <p className="msg-ok">{ok}</p>}
 
         <div className="form-row">
           <input
-            name="nombre_taller"
-            placeholder="Nombre del taller *"
-            value={form.nombre_taller || ""}
+            name="nombre_negocio"
+            placeholder="Nombre del negocio *"
+            value={form.nombre_negocio || ""}
             onChange={handleChange}
           />
           <input
