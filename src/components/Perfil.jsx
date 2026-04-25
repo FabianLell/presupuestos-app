@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase, getUserId } from "../supabase";
+import Onboarding from "./Onboarding";
 
 const VACIO = {
   nombre_negocio: "",
@@ -20,6 +21,10 @@ export default function Perfil({ onPerfilActualizado }) {
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const fileInputRef = useRef(null);
+  const [rubros, setRubros] = useState([]);
+  const [rubrosSeleccionados, setRubrosSeleccionados] = useState([]);
+  const [procesandoRubros, setProcesandoRubros] = useState(false);
+  const [okRubros, setOkRubros] = useState("");
 
   useEffect(() => {
     cargar();
@@ -33,8 +38,126 @@ export default function Perfil({ onPerfilActualizado }) {
       .select("*")
       .eq("user_id", userId)
       .single();
-    if (data) setForm({ ...VACIO, ...data });
+    if (data) {
+      setForm({ ...VACIO, ...data });
+      setRubrosSeleccionados(data.rubros_seleccionados || []);
+    }
+    await cargarRubros();
     setCargando(false);
+  }
+
+  async function cargarRubros() {
+    const { data } = await supabase.from("rubros").select("*").order("nombre");
+    setRubros(data || []);
+  }
+
+  function toggleRubro(id) {
+    setRubrosSeleccionados((prev) =>
+      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id],
+    );
+  }
+
+  async function agregarRubros() {
+    setProcesandoRubros(true);
+    setOkRubros("");
+
+    const userId = await getUserId();
+    const nuevosRubros = rubrosSeleccionados.filter(
+      (id) => !(form.rubros_seleccionados || []).includes(id),
+    );
+
+    if (nuevosRubros.length > 0) {
+      const { data: rubroCats } = await supabase
+        .from("rubro_categorias")
+        .select("*")
+        .in("rubro_id", nuevosRubros);
+
+      const { data: rubroMats } = await supabase
+        .from("rubro_materiales")
+        .select("*")
+        .in("rubro_id", nuevosRubros);
+
+      const { data: catsExistentes } = await supabase
+        .from("categorias")
+        .select("id, nombre")
+        .eq("user_id", userId);
+
+      const nombresExistentes = new Set(
+        (catsExistentes || []).map((c) => c.nombre.toLowerCase()),
+      );
+
+      const catsAInsertar = (rubroCats || []).filter(
+        (c) => !nombresExistentes.has(c.nombre.toLowerCase()),
+      );
+
+      let catsInsertadas = [];
+      if (catsAInsertar.length > 0) {
+        const { data: nuevasCats } = await supabase
+          .from("categorias")
+          .insert(
+            catsAInsertar.map((c) => ({ user_id: userId, nombre: c.nombre })),
+          )
+          .select();
+        catsInsertadas = nuevasCats || [];
+      }
+
+      const todasLasCats = [...(catsExistentes || []), ...catsInsertadas];
+      const mapaCats = {};
+      todasLasCats.forEach((c) => {
+        mapaCats[c.nombre.toLowerCase()] = c.id;
+      });
+
+      const mapaRubroCats = {};
+      (rubroCats || []).forEach((rc) => {
+        mapaRubroCats[rc.id] = rc.nombre;
+      });
+
+      const { data: matsExistentes } = await supabase
+        .from("materiales")
+        .select("nombre")
+        .eq("user_id", userId);
+
+      const matsNombresExistentes = new Set(
+        (matsExistentes || []).map((m) => m.nombre.toLowerCase()),
+      );
+
+      const matsAInsertar = (rubroMats || []).filter(
+        (m) => !matsNombresExistentes.has(m.nombre.toLowerCase()),
+      );
+
+      if (matsAInsertar.length > 0) {
+        await supabase.from("materiales").insert(
+          matsAInsertar.map((m) => {
+            const nombreCat = m.rubro_categoria_id
+              ? mapaRubroCats[m.rubro_categoria_id]
+              : null;
+            const categoriaId = nombreCat
+              ? mapaCats[nombreCat.toLowerCase()]
+              : null;
+            return {
+              user_id: userId,
+              nombre: m.nombre,
+              descripcion: m.descripcion || null,
+              unidad: m.unidad,
+              precio_unitario: m.precio_unitario,
+              categoria_id: categoriaId || null,
+            };
+          }),
+        );
+      }
+    }
+
+    await supabase
+      .from("perfil")
+      .upsert(
+        { user_id: userId, rubros_seleccionados: rubrosSeleccionados },
+        { onConflict: "user_id" },
+      );
+
+    setForm((prev) => ({ ...prev, rubros_seleccionados: rubrosSeleccionados }));
+    setOkRubros("Rubros actualizados correctamente");
+    setProcesandoRubros(false);
+    if (onPerfilActualizado) onPerfilActualizado();
   }
 
   function handleChange(e) {
@@ -259,6 +382,72 @@ export default function Perfil({ onPerfilActualizado }) {
           disabled={guardando}
         >
           {guardando ? "Guardando..." : "Guardar perfil"}
+        </button>
+      </div>
+      <div className="card">
+        <h2>Rubros del negocio</h2>
+        <p
+          style={{
+            color: "#888",
+            fontSize: "0.88rem",
+            marginBottom: "1rem",
+            lineHeight: "1.6",
+          }}
+        >
+          Seleccioná los rubros en los que trabajás. Al agregar un rubro nuevo
+          se cargarán automáticamente sus categorías y materiales de referencia.
+          No se duplicarán si ya los tenés cargados.
+        </p>
+
+        {okRubros && <p className="msg-ok">{okRubros}</p>}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "0.6rem",
+            marginBottom: "1rem",
+          }}
+        >
+          {rubros.map((r) => {
+            const activo = rubrosSeleccionados.includes(r.id);
+            return (
+              <button
+                key={r.id}
+                onClick={() => toggleRubro(r.id)}
+                style={{
+                  padding: "0.75rem 1rem",
+                  borderRadius: "8px",
+                  border: activo ? "2px solid #2563eb" : "1px solid #2a2a2a",
+                  background: activo ? "#1e3a5f" : "#222",
+                  color: activo ? "#fff" : "#ccc",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontSize: "0.9rem",
+                  transition: "all 0.15s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <span>{r.icono}</span>
+                {r.nombre}
+                {activo && (
+                  <span style={{ marginLeft: "auto", color: "#60a5fa" }}>
+                    ✓
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          className="btn btn-primary"
+          onClick={agregarRubros}
+          disabled={procesandoRubros}
+        >
+          {procesandoRubros ? "Procesando..." : "Guardar rubros"}
         </button>
       </div>
     </>

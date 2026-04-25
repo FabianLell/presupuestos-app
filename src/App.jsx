@@ -10,6 +10,7 @@ import Clientes from "./components/Clientes";
 import Presupuestos from "./components/Presupuestos";
 import Admin from "./components/Admin";
 import Perfil from "./components/Perfil";
+import Onboarding from "./components/Onboarding";
 
 const ADMIN_EMAILS = (
   import.meta.env.VITE_ADMIN_EMAIL || "admin@presupuestos-app.com"
@@ -32,6 +33,7 @@ export default function App() {
   const [resetMode, setResetMode] = useState(false);
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
   const [perfil, setPerfil] = useState(null);
+  const [onboarding, setOnboarding] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -62,6 +64,12 @@ export default function App() {
       .eq("user_id", session.user.id)
       .single();
     setPerfil(data || null);
+    // Si no tiene perfil o no tiene rubros_seleccionados definido → onboarding
+    if (!data || data.rubros_seleccionados === null) {
+      setOnboarding(true);
+    } else {
+      setOnboarding(false);
+    }
   }
 
   async function handleLogout() {
@@ -84,6 +92,15 @@ export default function App() {
     );
 
   if (resetMode) return <ResetPassword onDone={() => setResetMode(false)} />;
+  if (session && onboarding)
+    return (
+      <Onboarding
+        onComplete={() => {
+          setOnboarding(false);
+          cargarPerfil();
+        }}
+      />
+    );
 
   if (!session) {
     if (mostrarRegistro)
