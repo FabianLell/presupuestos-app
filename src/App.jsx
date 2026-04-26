@@ -164,6 +164,20 @@ export default function App() {
       <nav className="sidebar">
         <div
           style={{
+            textAlign: "center",
+            marginBottom: "0.75rem",
+            paddingBottom: "0.75rem",
+            borderBottom: "1px solid #2a2a2a",
+          }}
+        >
+          <img
+            src="/logo-app.png"
+            alt="PresuPro"
+            style={{ height: "72px", objectFit: "contain" }}
+          />
+        </div>
+        <div
+          style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",

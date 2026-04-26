@@ -72,7 +72,15 @@ export default function Login({ onShowRegistro }) {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h2 style={{ margin: 0 }}>Presupuestos App</h2>
+          <img
+            src="/logo-app.png"
+            alt="PresuPro"
+            style={{
+              height: "122px",
+              objectFit: "contain",
+              marginBottom: "0.75rem",
+            }}
+          />
           <p style={{ color: "#888", fontSize: "0.9rem", marginTop: "0.5rem" }}>
             Ingresá para continuar
           </p>
