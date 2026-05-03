@@ -49,6 +49,7 @@ export default function Servicios({ soloLectura }) {
   const [ok, setOk] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [confirmEliminar, setConfirmEliminar] = useState(null);
+  const [mostrarEliminados, setMostrarEliminados] = useState(false);
 
   // Hook de protección contra pérdida de datos
   const dirtyForm = useDirtyForm(VACIO, async () => {
@@ -75,14 +76,25 @@ export default function Servicios({ soloLectura }) {
     cargar();
   }, []);
 
+  useEffect(() => {
+    cargar();
+  }, [mostrarEliminados]);
+
   async function cargar() {
     setCargando(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("servicios")
       .select("*")
       .order("nombre");
+    
+    // Filtrar por deleted_at según el toggle
+    if (!mostrarEliminados) {
+      query = query.is("deleted_at", null);
+    }
+    
+    const { data, error } = await query;
     if (error) setError("Error al cargar servicios");
-    else setServicios(data);
+    else setServicios(data || []);
     setCargando(false);
   }
 
@@ -221,7 +233,11 @@ export default function Servicios({ soloLectura }) {
   }
 
   async function eliminar(id) {
-    const { error } = await supabase.from("servicios").delete().eq("id", id);
+    // Soft delete: actualizar deleted_at en lugar de borrar
+    const { error } = await supabase
+      .from("servicios")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) {
       setError("Error al eliminar");
       return;
@@ -230,6 +246,22 @@ export default function Servicios({ soloLectura }) {
     setForm(VACIO);
     setModoEdicion(false);
     setConfirmEliminar(null);
+    cargar();
+  }
+  
+  async function restaurar(id) {
+    // Restaurar: setear deleted_at a null
+    const { error } = await supabase
+      .from("servicios")
+      .update({ deleted_at: null })
+      .eq("id", id);
+    if (error) {
+      setError("Error al restaurar");
+      return;
+    }
+    setSelId(null);
+    setForm(VACIO);
+    setModoEdicion(false);
     cargar();
   }
 
@@ -264,20 +296,39 @@ export default function Servicios({ soloLectura }) {
               </button>
             )}
             {!soloLectura && selId && !modoEdicion && !esNuevo && (
-              <button
-                className="btn btn-secondary"
-                onClick={() => setModoEdicion(true)}
-              >
-                <IconoEditar /> Editar
-              </button>
+              (() => {
+                const servicio = servicios.find(s => s.id === selId);
+                const isEliminado = servicio?.deleted_at;
+                return !isEliminado ? (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setModoEdicion(true)}
+                  >
+                    <IconoEditar /> Editar
+                  </button>
+                ) : null;
+              })()
             )}
             {!soloLectura && selId && !esNuevo && !modoEdicion && (
-              <button
-                className="btn btn-danger"
-                onClick={() => setConfirmEliminar(selId)}
-              >
-                <IconoEliminar /> Eliminar
-              </button>
+              (() => {
+                const servicio = servicios.find(s => s.id === selId);
+                const isEliminado = servicio?.deleted_at;
+                return isEliminado ? (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => restaurar(selId)}
+                  >
+                    ↺ Restaurar
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => setConfirmEliminar(selId)}
+                  >
+                    <IconoEliminar /> Eliminar
+                  </button>
+                );
+              })()
             )}
             {modoEdicion && (
               <>
@@ -326,6 +377,14 @@ export default function Servicios({ soloLectura }) {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", fontSize: "0.9rem", color: "#888" }}>
+          <input
+            type="checkbox"
+            checked={mostrarEliminados}
+            onChange={(e) => setMostrarEliminados(e.target.checked)}
+          />
+          Mostrar eliminados
+        </label>
       </div>
 
       <div className="md-list-area">
@@ -346,14 +405,24 @@ export default function Servicios({ soloLectura }) {
               {filtrados.map((s) => (
                 <tr
                   key={s.id}
-                  className={selId === s.id ? "seleccionado" : ""}
+                  className={`${selId === s.id ? "seleccionado" : ""} ${s.deleted_at ? "eliminado" : ""}`}
                   onClick={() => seleccionar(s)}
+                  style={s.deleted_at ? { 
+                    color: "#999", 
+                    textDecoration: "line-through",
+                    opacity: 0.7 
+                  } : {}}
                 >
                   <td>
                     {s.nombre}
                     {s.descripcion && (
                       <div style={{ fontSize: "0.75rem", color: "#888" }}>
                         {s.descripcion}
+                      </div>
+                    )}
+                    {s.deleted_at && (
+                      <div style={{ fontSize: "0.7rem", color: "#ff6b6b", fontWeight: "bold" }}>
+                        ELIMINADO
                       </div>
                     )}
                   </td>
@@ -377,7 +446,7 @@ export default function Servicios({ soloLectura }) {
                 margin: "0.5rem 0 1rem",
               }}
             >
-              Esta acción no se puede deshacer.
+              El servicio será archivado y no aparecerá en los listados. Podrás restaurarlo más tarde si es necesario.
             </p>
             <div className="modal-footer">
               <button

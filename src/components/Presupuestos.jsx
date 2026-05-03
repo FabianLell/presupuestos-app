@@ -68,12 +68,13 @@ export default function Presupuestos({ perfil, soloLectura }) {
         .from("presupuestos")
         .select(`*, clientes(nombre, apellido)`)
         .order("created_at", { ascending: false }),
-      supabase.from("clientes").select("*").order("apellido"),
+      supabase.from("clientes").select("*").is("deleted_at", null).order("apellido"),
       supabase
         .from("materiales")
         .select("*, categorias(nombre)")
+        .is("deleted_at", null)
         .order("nombre"),
-      supabase.from("servicios").select("*").order("nombre"),
+      supabase.from("servicios").select("*").is("deleted_at", null).order("nombre"),
       supabase.from("categorias").select("id, nombre").order("nombre"),
     ]);
     if (p.data) setPresupuestos(p.data);
@@ -373,6 +374,7 @@ export default function Presupuestos({ perfil, soloLectura }) {
     );
     const totalGen = totalMat + totalSer;
 
+    const clienteSeleccionado = clientes.find(c => c.id === currentForm.cliente_id);
     const datosPresupuesto = {
       user_id: userId,
       cliente_id: currentForm.cliente_id,
@@ -382,6 +384,12 @@ export default function Presupuestos({ perfil, soloLectura }) {
       total_materiales: totalMat,
       total_servicios: totalSer,
       total: totalGen,
+      cliente_snapshot: clienteSeleccionado ? {
+        nombre: clienteSeleccionado.nombre,
+        apellido: clienteSeleccionado.apellido,
+        telefono: clienteSeleccionado.telefono || "",
+        direccion: clienteSeleccionado.direccion || "",
+      } : null,
     };
 
     let pid = editId;
@@ -419,23 +427,32 @@ export default function Presupuestos({ perfil, soloLectura }) {
 
     if (currentItemsMat.length > 0) {
       await supabase.from("presupuesto_materiales").insert(
-        currentItemsMat.map((i) => ({
-          presupuesto_id: pid,
-          material_id: i.material_id,
-          cantidad: i.cantidad,
-          precio_unitario: i.precio_unitario,
-          subtotal: i.subtotal,
-        })),
+        currentItemsMat.map((i) => {
+          const material = materiales.find(m => m.id === i.material_id);
+          return {
+            presupuesto_id: pid,
+            material_id: i.material_id,
+            cantidad: i.cantidad,
+            precio_unitario: i.precio_unitario,
+            subtotal: i.subtotal,
+            nombre_snapshot: material?.nombre || "",
+            unidad_snapshot: material?.unidad || "",
+          };
+        }),
       );
     }
     if (currentItemsSer.length > 0) {
       await supabase.from("presupuesto_servicios").insert(
-        currentItemsSer.map((i) => ({
-          presupuesto_id: pid,
-          servicio_id: i.servicio_id,
-          precio: parseFloat(i.precio) || 0,
-          descripcion: i.descripcion,
-        })),
+        currentItemsSer.map((i) => {
+          const servicio = servicios.find(s => s.id === i.servicio_id);
+          return {
+            presupuesto_id: pid,
+            servicio_id: i.servicio_id,
+            precio: parseFloat(i.precio) || 0,
+            descripcion: i.descripcion,
+            nombre_snapshot: servicio?.nombre || "",
+          };
+        }),
       );
     }
 
@@ -719,17 +736,21 @@ export default function Presupuestos({ perfil, soloLectura }) {
               paddingBottom: "0.5rem",
             }}
           >
-            <p style={{ color: "#333", fontSize: "0.9rem" }}>
+            <p style={{ fontSize: "0.9rem", marginBottom: "0.5rem" }}>
               <strong>Cliente:</strong>{" "}
-              {cliente ? `${cliente.apellido}, ${cliente.nombre}` : "—"}
-              {cliente?.telefono && (
+              {cliente
+                ? `${cliente.apellido}, ${cliente.nombre}`
+                : p.cliente_snapshot
+                  ? `${p.cliente_snapshot.apellido}, ${p.cliente_snapshot.nombre}`
+                  : "—"}
+              {(cliente?.telefono || p.cliente_snapshot?.telefono) && (
                 <span style={{ marginLeft: "1.5rem" }}>
-                  Tel: {cliente.telefono}
+                  Tel: {cliente?.telefono || p.cliente_snapshot?.telefono}
                 </span>
               )}
-              {cliente?.direccion && (
+              {(cliente?.direccion || p.cliente_snapshot?.direccion) && (
                 <span style={{ marginLeft: "1.5rem" }}>
-                  {cliente.direccion}
+                  {cliente?.direccion || p.cliente_snapshot?.direccion}
                 </span>
               )}
             </p>
@@ -791,7 +812,9 @@ export default function Presupuestos({ perfil, soloLectura }) {
                 >
                   {cliente
                     ? `${cliente.apellido}, ${cliente.nombre}`
-                    : "Cliente no encontrado"}
+                    : p.cliente_snapshot
+                      ? `${p.cliente_snapshot.apellido}, ${p.cliente_snapshot.nombre}`
+                      : "Cliente no encontrado"}
                 </div>
               </div>
               <div
@@ -803,7 +826,7 @@ export default function Presupuestos({ perfil, soloLectura }) {
                   Teléfono:
                 </span>
                 <div style={{ color: "#e5e7eb", marginTop: "0.1rem" }}>
-                  {cliente?.telefono || "—"}
+                  {cliente?.telefono || p.cliente_snapshot?.telefono || "—"}
                 </div>
               </div>
             </div>
@@ -829,7 +852,7 @@ export default function Presupuestos({ perfil, soloLectura }) {
                   Dirección:
                 </span>
                 <div style={{ color: "#e5e7eb", marginTop: "0.1rem" }}>
-                  {cliente?.direccion || "—"}
+                  {cliente?.direccion || p.cliente_snapshot?.direccion || "—"}
                 </div>
               </div>
               <div
@@ -928,9 +951,9 @@ export default function Presupuestos({ perfil, soloLectura }) {
                 {p.items_materiales.map((i) => (
                   <tr key={i.id} style={{ borderBottom: "1px solid #34495e" }}>
                     <td style={{ padding: "0.25rem 0.5rem", color: "#e5e7eb" }}>
-                      {i.materiales?.nombre}{" "}
+                      {i.materiales?.nombre || i.nombre_snapshot}{" "}
                       <span style={{ color: "#9ca3af", fontSize: "0.8rem" }}>
-                        ({i.materiales?.unidad})
+                        ({i.materiales?.unidad || i.unidad_snapshot})
                       </span>
                     </td>
                     <td
@@ -1056,7 +1079,7 @@ export default function Presupuestos({ perfil, soloLectura }) {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {i.servicios?.nombre}
+                      {i.servicios?.nombre || i.nombre_snapshot}
                     </td>
                     <td style={{ padding: "0.25rem 0.5rem", color: "#9ca3af" }}>
                       {i.descripcion || "â"}

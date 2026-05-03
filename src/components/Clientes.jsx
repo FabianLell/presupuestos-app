@@ -57,6 +57,7 @@ export default function Clientes({ soloLectura }) {
   const [ok, setOk] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [confirmEliminar, setConfirmEliminar] = useState(null);
+  const [mostrarEliminados, setMostrarEliminados] = useState(false);
 
   // Hook de protección contra pérdida de datos
   const dirtyForm = useDirtyForm(VACIO, async () => {
@@ -83,14 +84,25 @@ export default function Clientes({ soloLectura }) {
     cargar();
   }, []);
 
+  useEffect(() => {
+    cargar();
+  }, [mostrarEliminados]);
+
   async function cargar() {
     setCargando(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("clientes")
       .select("*")
       .order("apellido");
+    
+    // Filtrar por deleted_at según el toggle
+    if (!mostrarEliminados) {
+      query = query.is("deleted_at", null);
+    }
+    
+    const { data, error } = await query;
     if (error) setError("Error al cargar clientes");
-    else setClientes(data);
+    else setClientes(data || []);
     setCargando(false);
   }
 
@@ -244,7 +256,11 @@ export default function Clientes({ soloLectura }) {
   }
 
   async function eliminar(id) {
-    const { error } = await supabase.from("clientes").delete().eq("id", id);
+    // Soft delete: actualizar deleted_at en lugar de borrar
+    const { error } = await supabase
+      .from("clientes")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) {
       setError("Error al eliminar");
       return;
@@ -253,6 +269,22 @@ export default function Clientes({ soloLectura }) {
     setForm(VACIO);
     setModoEdicion(false);
     setConfirmEliminar(null);
+    cargar();
+  }
+  
+  async function restaurar(id) {
+    // Restaurar: setear deleted_at a null
+    const { error } = await supabase
+      .from("clientes")
+      .update({ deleted_at: null })
+      .eq("id", id);
+    if (error) {
+      setError("Error al restaurar");
+      return;
+    }
+    setSelId(null);
+    setForm(VACIO);
+    setModoEdicion(false);
     cargar();
   }
 
@@ -291,20 +323,39 @@ export default function Clientes({ soloLectura }) {
               </button>
             )}
             {!soloLectura && selId && !modoEdicion && !esNuevo && (
-              <button
-                className="btn btn-secondary"
-                onClick={() => setModoEdicion(true)}
-              >
-                <IconoEditar /> Editar
-              </button>
+              (() => {
+                const cliente = clientes.find(c => c.id === selId);
+                const isEliminado = cliente?.deleted_at;
+                return !isEliminado ? (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setModoEdicion(true)}
+                  >
+                    <IconoEditar /> Editar
+                  </button>
+                ) : null;
+              })()
             )}
             {!soloLectura && selId && !esNuevo && !modoEdicion && (
-              <button
-                className="btn btn-danger"
-                onClick={() => setConfirmEliminar(selId)}
-              >
-                <IconoEliminar /> Eliminar
-              </button>
+              (() => {
+                const cliente = clientes.find(c => c.id === selId);
+                const isEliminado = cliente?.deleted_at;
+                return isEliminado ? (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => restaurar(selId)}
+                  >
+                    ↺ Restaurar
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => setConfirmEliminar(selId)}
+                  >
+                    <IconoEliminar /> Eliminar
+                  </button>
+                );
+              })()
             )}
             {modoEdicion && (
               <>
@@ -384,6 +435,14 @@ export default function Clientes({ soloLectura }) {
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", fontSize: "0.9rem", color: "#888" }}>
+          <input
+            type="checkbox"
+            checked={mostrarEliminados}
+            onChange={(e) => setMostrarEliminados(e.target.checked)}
+          />
+          Mostrar eliminados
+        </label>
       </div>
 
       {/* LISTADO */}
@@ -406,14 +465,24 @@ export default function Clientes({ soloLectura }) {
               {filtrados.map((c) => (
                 <tr
                   key={c.id}
-                  className={selId === c.id ? "seleccionado" : ""}
+                  className={`${selId === c.id ? "seleccionado" : ""} ${c.deleted_at ? "eliminado" : ""}`}
                   onClick={() => seleccionar(c)}
+                  style={c.deleted_at ? { 
+                    color: "#999", 
+                    textDecoration: "line-through",
+                    opacity: 0.7 
+                  } : {}}
                 >
                   <td>
                     {c.apellido}, {c.nombre}
                     {c.direccion && (
                       <div style={{ fontSize: "0.75rem", color: "#888" }}>
                         {c.direccion}
+                      </div>
+                    )}
+                    {c.deleted_at && (
+                      <div style={{ fontSize: "0.7rem", color: "#ff6b6b", fontWeight: "bold" }}>
+                        ELIMINADO
                       </div>
                     )}
                   </td>
@@ -439,7 +508,7 @@ export default function Clientes({ soloLectura }) {
                 margin: "0.5rem 0 1rem",
               }}
             >
-              Esta acción no se puede deshacer.
+              El cliente será archivado y no aparecerá en los listados. Podrás restaurarlo más tarde si es necesario.
             </p>
             <div className="modal-footer">
               <button
