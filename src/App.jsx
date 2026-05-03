@@ -573,6 +573,45 @@ export default function App() {
           </div>
         )}
 
+        {/* Botón flotante de cerrar sesión para dispositivos móviles */}
+        {isMobileDevice && (
+          <button
+            onClick={handleLogout}
+            style={{
+              position: "fixed",
+              bottom: "20px",
+              right: "20px",
+              width: "60px",
+              height: "60px",
+              borderRadius: "50%",
+              background: "#dc3545",
+              color: "#fff",
+              border: "none",
+              fontSize: "24px",
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(220, 53, 69, 0.4)",
+              zIndex: 1000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "transform 0.2s, box-shadow 0.2s",
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = "scale(1.1)";
+              e.currentTarget.style.boxShadow =
+                "0 6px 16px rgba(220, 53, 69, 0.5)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow =
+                "0 4px 12px rgba(220, 53, 69, 0.4)";
+            }}
+            title="Cerrar sesión"
+          >
+            🚪
+          </button>
+        )}
+
         {/* Banner de aviso para dispositivos móviles */}
         {showMobileNotice && (
           <div
