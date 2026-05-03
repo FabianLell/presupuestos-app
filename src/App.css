@@ -947,4 +947,45 @@ td .btn {
     padding: 0.3rem 0.8rem;
     font-size: 0.8rem;
   }
+  
+  /* Botón de cerrar sesión más grande y accesible */
+  .sidebar-footer .sidebar-btn.danger {
+    padding: 1rem 0.75rem;
+    font-size: 1.1rem;
+    min-height: 56px;
+    margin: 0.5rem;
+  }
+  
+  .sidebar-footer .sidebar-btn.danger .btn-icon {
+    font-size: 1.3rem;
+  }
+  
+  .sidebar-footer .sidebar-btn.danger .btn-label {
+    font-size: 1.1rem;
+  }
+  
+  /* Asegurar que el sidebar-footer sea visible y accesible */
+  .sidebar-footer {
+    padding: 1rem 0.5rem;
+    margin-top: auto;
+    position: sticky;
+    bottom: 0;
+    background: #1a1a1a;
+  }
+  
+  /* Sidebar colapsado: mantener botón accesible */
+  .sidebar.colapsado .sidebar-footer .sidebar-btn.danger {
+    padding: 1rem;
+    justify-content: center;
+    min-height: 56px;
+    min-width: 56px;
+  }
+  
+  .sidebar.colapsado .sidebar-footer .sidebar-btn.danger .btn-label {
+    display: none;
+  }
+  
+  .sidebar.colapsado .sidebar-footer .sidebar-btn.danger .btn-icon {
+    font-size: 1.5rem;
+  }
 }
