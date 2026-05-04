@@ -34,6 +34,7 @@ export default function Presupuestos({ perfil, soloLectura }) {
   const [filtroCliente, setFiltroCliente] = useState("");
   const [categorias, setCategorias] = useState([]);
   const [confirmEliminar, setConfirmEliminar] = useState(null);
+  const [verEliminados, setVerEliminados] = useState(false);
   const pdfRef = useRef(null);
 
   // Hook de protección contra pérdida de datos
@@ -61,13 +62,23 @@ export default function Presupuestos({ perfil, soloLectura }) {
     cargarTodo();
   }, []);
 
+  useEffect(() => {
+    cargarTodo();
+  }, [verEliminados]);
+
   async function cargarTodo() {
     setCargando(true);
+    let query = supabase
+      .from("presupuestos")
+      .select(`*, clientes(nombre, apellido)`)
+      .order("created_at", { ascending: false });
+    
+    if (!verEliminados) {
+      query = query.is("deleted_at", null);
+    }
+    
     const [p, c, m, s, cat] = await Promise.all([
-      supabase
-        .from("presupuestos")
-        .select(`*, clientes(nombre, apellido)`)
-        .order("created_at", { ascending: false }),
+      query,
       supabase.from("clientes").select("*").order("apellido"),
       supabase
         .from("materiales")
@@ -460,8 +471,26 @@ export default function Presupuestos({ perfil, soloLectura }) {
   }
 
   async function eliminarPresupuesto(id) {
-    await supabase.from("presupuestos").delete().eq("id", id);
+    await supabase
+      .from("presupuestos")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
     setConfirmEliminar(null);
+    volverAlListado();
+    cargarTodo();
+  }
+
+  async function restaurarPresupuesto(id) {
+    await supabase
+      .from("presupuestos")
+      .update({ deleted_at: null })
+      .eq("id", id);
+    
+    // Actualizar el presupuesto actual localmente
+    if (presupuestoActual && presupuestoActual.id === id) {
+      setPresupuestoActual(prev => ({ ...prev, deleted_at: null }));
+    }
+    
     cargarTodo();
   }
 
@@ -587,12 +616,35 @@ export default function Presupuestos({ perfil, soloLectura }) {
             >
               {"←"} Volver
             </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => cargarParaEditar(p)}
-            >
-              Editar
-            </button>
+            {p.deleted_at ? (
+              <button
+                className="btn btn-success"
+                onClick={() => restaurarPresupuesto(p.id)}
+              >
+                🔄 Restaurar
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => cargarParaEditar(p)}
+                >
+                  Editar
+                </button>
+                {!soloLectura && (
+                  <button
+                    className="btn btn-danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log("Botón eliminar presionado, ID:", p.id);
+                      setConfirmEliminar(p.id);
+                    }}
+                  >
+                    Eliminar
+                  </button>
+                )}
+              </>
+            )}
           </div>
           <button className="btn btn-primary" onClick={generarPDF}>
             Descargar PDF
@@ -1528,6 +1580,38 @@ export default function Presupuestos({ perfil, soloLectura }) {
             <p>{perfil?.leyenda_presupuesto || ""}</p>
           </div>
         </div>
+
+        {/* MODAL CONFIRMAR ELIMINAR */}
+        {console.log("Renderizando modal, confirmEliminar:", confirmEliminar) || confirmEliminar && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>¿Eliminar presupuesto?</h3>
+              <p
+                style={{
+                  color: "#888",
+                  fontSize: "0.9rem",
+                  margin: "0.5rem 0 1rem",
+                }}
+              >
+                El presupuesto será marcado como eliminado pero podrá ser restaurado más tarde.
+              </p>
+              <div className="modal-footer">
+                <button
+                  className="btn btn-danger"
+                  onClick={() => eliminarPresupuesto(confirmEliminar)}
+                >
+                  Eliminar
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setConfirmEliminar(null)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
@@ -2077,6 +2161,25 @@ export default function Presupuestos({ perfil, soloLectura }) {
           onChange={(e) => setFiltroCliente(e.target.value)}
           style={{ flex: 1, margin: 0 }}
         />
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            color: "#aaa",
+            fontSize: "0.9rem",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={verEliminados}
+            onChange={(e) => setVerEliminados(e.target.checked)}
+            style={{ margin: 0 }}
+          />
+          Ver Eliminados
+        </label>
         {!soloLectura && (
           <button
             className="btn btn-primary"
@@ -2104,18 +2207,17 @@ export default function Presupuestos({ perfil, soloLectura }) {
             <thead>
               <tr>
                 <th style={{ width: "8%" }}>Número</th>
-                <th style={{ width: "20%", textAlign: "left" }}>Cliente</th>
+                <th style={{ width: "22%", textAlign: "left" }}>Cliente</th>
                 <th style={{ width: "12%" }}>Fecha</th>
                 <th style={{ width: "12%" }}>Estado</th>
-                <th style={{ width: "28%" }}>Observaciones</th>
+                <th style={{ width: "31%" }}>Observaciones</th>
                 <th style={{ width: "15%", textAlign: "right" }}>Total</th>
-                <th style={{ width: "5%" }}></th>
               </tr>
             </thead>
             <tbody>
               {presupuestosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ color: "#888" }}>
+                  <td colSpan="6" style={{ color: "#888" }}>
                     No se encontraron presupuestos
                   </td>
                 </tr>
@@ -2124,7 +2226,15 @@ export default function Presupuestos({ perfil, soloLectura }) {
                   <tr
                     key={p.id}
                     onClick={() => cargarDetalle(p.id)}
-                    style={{ cursor: "pointer" }}
+                    style={{ 
+                      cursor: "pointer",
+                      ...(p.deleted_at ? { 
+                        color: "#999", 
+                        textDecoration: "line-through",
+                        opacity: 0.7 
+                      } : {})
+                    }}
+                    className={p.deleted_at ? "eliminado" : ""}
                   >
                     <td style={{ textAlign: "center", fontFamily: "monospace", fontWeight: "bold" }}>
                       #{p.numero}
@@ -2137,6 +2247,16 @@ export default function Presupuestos({ perfil, soloLectura }) {
                       ) : (
                         <span style={{ color: "#888" }}>—</span>
                       )}
+                      {p.deleted_at && (
+                        <span style={{ 
+                          fontSize: "0.7rem", 
+                          color: "#ff6b6b", 
+                          fontWeight: "bold",
+                          marginLeft: "0.5rem"
+                        }}>
+                          ELIMINADO
+                        </span>
+                      )}
                     </td>
                     <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.fecha}</td>
                     <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{badgeEstado(p.estado)}</td>
@@ -2146,19 +2266,6 @@ export default function Presupuestos({ perfil, soloLectura }) {
                     <td style={{ textAlign: "right", fontFamily: "monospace" }}>
                       ${parseFloat(p.total).toLocaleString("es-AR")}
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
-                        {!soloLectura && (
-                          <button
-                            className="btn btn-danger"
-                            title="Eliminar"
-                            onClick={() => setConfirmEliminar(p.id)}
-                          >
-                            <IconoEliminar />
-                          </button>
-                        )}
-                      </div>
-                    </td>
                   </tr>
                 ))
               )}
@@ -2166,38 +2273,6 @@ export default function Presupuestos({ perfil, soloLectura }) {
           </table>
         )}
       </div>
-
-      {/* MODAL CONFIRMAR ELIMINAR */}
-      {confirmEliminar && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>¿Eliminar presupuesto?</h3>
-            <p
-              style={{
-                color: "#888",
-                fontSize: "0.9rem",
-                margin: "0.5rem 0 1rem",
-              }}
-            >
-              Esta acción no se puede deshacer.
-            </p>
-            <div className="modal-footer">
-              <button
-                className="btn btn-danger"
-                onClick={() => eliminarPresupuesto(confirmEliminar)}
-              >
-                Eliminar
-              </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setConfirmEliminar(null)}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
