@@ -462,13 +462,13 @@ export default function Clientes({ soloLectura }) {
         ) : filtrados.length === 0 ? (
           <p style={{ color: "#888", padding: "1rem" }}>No hay clientes</p>
         ) : (
-          <table>
+          <table style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                <th>Apellido, Nombre</th>
-                <th>Teléfono</th>
-                <th>Email</th>
-                <th>DNI</th>
+                <th style={{ width: "40%", textAlign: "left" }}>Apellido, Nombre</th>
+                <th style={{ width: "15%" }}>Teléfono</th>
+                <th style={{ width: "30%" }}>Email</th>
+                <th style={{ width: "15%" }}>DNI</th>
               </tr>
             </thead>
             <tbody>
@@ -483,17 +483,19 @@ export default function Clientes({ soloLectura }) {
                     opacity: 0.7 
                   } : {}}
                 >
-                  <td>
-                    {c.apellido}, {c.nombre}
-                    {c.direccion && (
-                      <div style={{ fontSize: "0.75rem", color: "#888" }}>
-                        {c.direccion}
-                      </div>
-                    )}
+                  <td style={{ textAlign: "left" }}>
+                    <span>
+                      {c.apellido}, {c.nombre}
+                    </span>
                     {c.deleted_at && (
-                      <div style={{ fontSize: "0.7rem", color: "#ff6b6b", fontWeight: "bold" }}>
+                      <span style={{ 
+                        fontSize: "0.7rem", 
+                        color: "#ff6b6b", 
+                        fontWeight: "bold",
+                        marginLeft: "0.5rem"
+                      }}>
                         ELIMINADO
-                      </div>
+                      </span>
                     )}
                   </td>
                   <td>{c.telefono || "—"}</td>

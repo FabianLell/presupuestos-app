@@ -1724,12 +1724,7 @@ export default function Presupuestos({ perfil, soloLectura }) {
                         key={i.material_id}
                         style={{ borderBottom: "1px solid #34495e" }}
                       >
-                        <td
-                          style={{
-                            padding: "0.25rem 0.5rem",
-                            color: "#e5e7eb",
-                          }}
-                        >
+                        <td style={{ textAlign: "left" }}>
                           {i.nombre}{" "}
                           <span
                             style={{ color: "#9ca3af", fontSize: "0.8rem" }}
@@ -2105,21 +2100,22 @@ export default function Presupuestos({ perfil, soloLectura }) {
             No hay presupuestos todavía
           </p>
         ) : (
-          <table>
+          <table style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                <th>Cliente</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>Total</th>
-                <th>Observaciones</th>
-                <th></th>
+                <th style={{ width: "8%" }}>Número</th>
+                <th style={{ width: "20%", textAlign: "left" }}>Cliente</th>
+                <th style={{ width: "12%" }}>Fecha</th>
+                <th style={{ width: "12%" }}>Estado</th>
+                <th style={{ width: "28%" }}>Observaciones</th>
+                <th style={{ width: "15%", textAlign: "right" }}>Total</th>
+                <th style={{ width: "5%" }}></th>
               </tr>
             </thead>
             <tbody>
               {presupuestosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ color: "#888" }}>
+                  <td colSpan="7" style={{ color: "#888" }}>
                     No se encontraron presupuestos
                   </td>
                 </tr>
@@ -2130,31 +2126,28 @@ export default function Presupuestos({ perfil, soloLectura }) {
                     onClick={() => cargarDetalle(p.id)}
                     style={{ cursor: "pointer" }}
                   >
-                    <td>
+                    <td style={{ textAlign: "center", fontFamily: "monospace", fontWeight: "bold" }}>
+                      #{p.numero}
+                    </td>
+                    <td style={{ textAlign: "left" }}>
                       {p.clientes ? (
-                        <div>
+                        <span>
                           {p.clientes.apellido}, {p.clientes.nombre}
-                          <div style={{ fontSize: "0.8rem", color: "#888" }}>
-                            #{p.numero}
-                          </div>
-                        </div>
+                        </span>
                       ) : (
                         <span style={{ color: "#888" }}>—</span>
                       )}
                     </td>
-                    <td>{p.fecha}</td>
-                    <td>{badgeEstado(p.estado)}</td>
-                    <td>${parseFloat(p.total).toLocaleString("es-AR")}</td>
-                    <td style={{ color: "#888" }}>{p.observaciones || "—"}</td>
+                    <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.fecha}</td>
+                    <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{badgeEstado(p.estado)}</td>
+                    <td style={{ color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={p.observaciones || ""}>
+                      {p.observaciones || "—"}
+                    </td>
+                    <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                      ${parseFloat(p.total).toLocaleString("es-AR")}
+                    </td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: "flex", gap: "0.25rem" }}>
-                        <button
-                          className="btn btn-secondary"
-                          title="Descargar PDF"
-                          onClick={() => descargarPDFDesdeLista(p.id)}
-                        >
-                          <IconoPDF />
-                        </button>
+                      <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center" }}>
                         {!soloLectura && (
                           <button
                             className="btn btn-danger"

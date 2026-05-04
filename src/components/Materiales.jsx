@@ -629,13 +629,13 @@ export default function Materiales({ soloLectura }) {
         ) : filtrados.length === 0 ? (
           <p style={{ color: "#888", padding: "1rem" }}>No hay materiales</p>
         ) : (
-          <table>
+          <table style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Categoría</th>
-                <th>Unidad</th>
-                <th>Precio</th>
+                <th style={{ width: "45%", textAlign: "left" }}>Nombre</th>
+                <th style={{ width: "20%" }}>Categoría</th>
+                <th style={{ width: "10%" }}>Unidad</th>
+                <th style={{ width: "25%" }}>Precio</th>
               </tr>
             </thead>
             <tbody>
@@ -650,22 +650,24 @@ export default function Materiales({ soloLectura }) {
                     opacity: 0.7 
                   } : {}}
                 >
-                  <td>
-                    {m.nombre}
-                    {m.descripcion && (
-                      <div style={{ fontSize: "0.75rem", color: "#888" }}>
-                        {m.descripcion}
-                      </div>
-                    )}
+                  <td style={{ textAlign: "left" }}>
+                    <span>
+                      {m.nombre}
+                    </span>
                     {m.deleted_at && (
-                      <div style={{ fontSize: "0.7rem", color: "#ff6b6b", fontWeight: "bold" }}>
+                      <span style={{ 
+                        fontSize: "0.7rem", 
+                        color: "#ff6b6b", 
+                        fontWeight: "bold",
+                        marginLeft: "0.5rem"
+                      }}>
                         ELIMINADO
-                      </div>
+                      </span>
                     )}
                   </td>
                   <td>{m.categorias?.nombre || "—"}</td>
-                  <td>{m.unidad}</td>
-                  <td>
+                  <td style={{ textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.unidad}</td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>
                     ${parseFloat(m.precio_unitario).toLocaleString("es-AR")}
                   </td>
                 </tr>

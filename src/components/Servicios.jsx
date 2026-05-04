@@ -403,12 +403,12 @@ export default function Servicios({ soloLectura }) {
         ) : filtrados.length === 0 ? (
           <p style={{ color: "#888", padding: "1rem" }}>No hay servicios</p>
         ) : (
-          <table>
+          <table style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Descripción</th>
-                <th>Precio</th>
+                <th style={{ width: "25%", textAlign: "left" }}>Nombre</th>
+                <th style={{ width: "50%" }}>Descripción</th>
+                <th style={{ width: "25%" }}>Precio</th>
               </tr>
             </thead>
             <tbody>
@@ -423,21 +423,25 @@ export default function Servicios({ soloLectura }) {
                     opacity: 0.7 
                   } : {}}
                 >
-                  <td>
-                    {s.nombre}
-                    {s.descripcion && (
-                      <div style={{ fontSize: "0.75rem", color: "#888" }}>
-                        {s.descripcion}
-                      </div>
-                    )}
+                  <td style={{ textAlign: "left" }}>
+                    <span>
+                      {s.nombre}
+                    </span>
                     {s.deleted_at && (
-                      <div style={{ fontSize: "0.7rem", color: "#ff6b6b", fontWeight: "bold" }}>
+                      <span style={{ 
+                        fontSize: "0.7rem", 
+                        color: "#ff6b6b", 
+                        fontWeight: "bold",
+                        marginLeft: "0.5rem"
+                      }}>
                         ELIMINADO
-                      </div>
+                      </span>
                     )}
                   </td>
                   <td style={{ color: "#888" }}>{s.descripcion || "—"}</td>
-                  <td>${parseFloat(s.precio).toLocaleString("es-AR")}</td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace" }}>
+                    ${parseFloat(s.precio).toLocaleString("es-AR")}
+                  </td>
                 </tr>
               ))}
             </tbody>
