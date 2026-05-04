@@ -353,7 +353,11 @@ export default function App() {
           </div>
 
           {/* Perfil del negocio */}
-          <div className="sidebar-perfil">
+          <div 
+            className="sidebar-perfil"
+            onClick={() => navegarA("perfil")}
+            style={{ cursor: "pointer" }}
+          >
             <LogoNegocio size={colapsado ? 32 : 44} />
             {!colapsado && (
               <span className="sidebar-perfil-nombre">{nombreNegocio}</span>
@@ -362,17 +366,6 @@ export default function App() {
 
           {/* Navegación */}
           <div className="sidebar-nav">
-            <button
-              className={`sidebar-btn ${seccion === "perfil" ? "active" : ""}`}
-              onClick={() => navegarA("perfil")}
-              data-tooltip="Editar perfil"
-            >
-              <span className="btn-icon">⚙️</span>
-              <span className="btn-label">Editar perfil</span>
-            </button>
-
-            <div className="sidebar-separator" />
-
             {SECCIONES.map((s) => (
               <button
                 key={s.id}
