@@ -39,8 +39,8 @@ export default function Registro({ onBackToLogin }) {
     if (error) {
       setError(error.message || "No se pudo crear la cuenta");
     } else {
-      setOk("Cuenta creada. Revisá tu email para confirmar el registro.");
-      timeoutRef.current = setTimeout(() => onBackToLogin?.(), 1800);
+      setOk("¡Cuenta creada! Revisá tu email para confirmar el registro antes de iniciar sesión.");
+      // No redirigir automáticamente, dejar que el usuario decida
     }
     setCargando(false);
   }

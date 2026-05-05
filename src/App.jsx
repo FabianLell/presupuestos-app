@@ -6,6 +6,7 @@ import { DirtyFormModal } from "./components/DirtyFormModal";
 import Login from "./components/Login";
 import Registro from "./components/Registro";
 import ResetPassword from "./components/ResetPassword";
+import ConfirmarEmail from "./components/ConfirmarEmail";
 import Materiales from "./components/Materiales";
 import Servicios from "./components/Servicios";
 import Clientes from "./components/Clientes";
@@ -47,6 +48,7 @@ export default function App() {
     soloLectura: false,
     mensaje: "",
   });
+  const [confirmacionEmail, setConfirmacionEmail] = useState(false);
 
   // Estado para protección de datos
   const [dirtyFormConfig, setDirtyFormConfig] = useState({
@@ -112,6 +114,18 @@ export default function App() {
       window.hideDirtyFormModal = null;
     };
   }, [showDirtyFormModal, hideDirtyFormModal]);
+
+  // Detectar si estamos en la página de confirmación de email
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasTokens = urlParams.has("access_token") && urlParams.has("refresh_token");
+    
+    if (hasTokens) {
+      setConfirmacionEmail(true);
+    } else {
+      setConfirmacionEmail(false);
+    }
+  }, []);
 
   // Función de navegación con protección
   function navegarA(id) {
@@ -254,6 +268,10 @@ export default function App() {
         }}
       />
     );
+  if (confirmacionEmail) {
+    return <ConfirmarEmail />;
+  }
+
   if (!session) {
     if (mostrarRegistro)
       return <Registro onBackToLogin={() => setMostrarRegistro(false)} />;

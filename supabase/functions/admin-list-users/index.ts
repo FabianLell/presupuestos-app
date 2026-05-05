@@ -1,10 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = [
-  "https://presupuestos-app.vercel.app",
-  "https://presupuestos-app-lilac.vercel.app",
   "https://presupro-app.vercel.app",
-  "http://localhost:5173",
 ];
 
 function getCorsHeaders(req: Request) {
@@ -28,9 +25,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const adminEmail = Deno.env.get("ADMIN_EMAIL");
+    const adminEmails = (Deno.env.get("ADMIN_EMAIL") || "").split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
 
-    if (!supabaseUrl || !serviceRoleKey || !adminEmail) {
+    if (!supabaseUrl || !serviceRoleKey || adminEmails.length === 0) {
       return new Response(
         JSON.stringify({ error: "Missing required env vars" }),
         {
@@ -68,10 +65,21 @@ Deno.serve(async (req) => {
     }
 
     const callerEmail = (user.email || "").trim().toLowerCase();
-    const expectedAdminEmail = adminEmail.trim().toLowerCase();
 
-    if (callerEmail !== expectedAdminEmail) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
+    // Debug logs
+    console.log('Admin emails from env:', adminEmails);
+    console.log('Caller email:', callerEmail);
+    console.log('Is admin:', adminEmails.includes(callerEmail));
+
+    if (!adminEmails.includes(callerEmail)) {
+      return new Response(JSON.stringify({
+        error: "Forbidden",
+        debug: {
+          callerEmail,
+          adminEmails,
+          isAdmin: adminEmails.includes(callerEmail)
+        }
+      }), {
         status: 403,
         headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
@@ -107,26 +115,26 @@ Deno.serve(async (req) => {
 
     const userIds = allUsers.map((u) => u.id);
 
-const { data: perfiles } = await adminClient
-  .from("perfil")
-  .select("user_id, nombre_negocio, estado, fecha_inicio_prueba")
-  .in("user_id", userIds);
+    const { data: perfiles } = await adminClient
+      .from("perfil")
+      .select("user_id, nombre_negocio, estado, fecha_inicio_prueba")
+      .in("user_id", userIds);
 
-const mapaPerfiles: Record<string, any> = {};
-(perfiles || []).forEach((p: any) => {
-  mapaPerfiles[p.user_id] = p;
-});
+    const mapaPerfiles: Record<string, any> = {};
+    (perfiles || []).forEach((p: any) => {
+      mapaPerfiles[p.user_id] = p;
+    });
 
-const users = allUsers.map((u) => ({
-  id: u.id,
-  email: u.email,
-  created_at: u.created_at,
-  last_sign_in_at: u.last_sign_in_at,
-  nombre_negocio: mapaPerfiles[u.id]?.nombre_negocio || u.user_metadata?.nombre_negocio || null,
-  perfil: mapaPerfiles[u.id] || null,
-}));
+    const users = allUsers.map((u) => ({
+      id: u.id,
+      email: u.email,
+      created_at: u.created_at,
+      last_sign_in_at: u.last_sign_in_at,
+      nombre_negocio: mapaPerfiles[u.id]?.nombre_negocio || u.user_metadata?.nombre_negocio || null,
+      perfil: mapaPerfiles[u.id] || null,
+    }));
 
-return new Response(JSON.stringify({ users }), {
+    return new Response(JSON.stringify({ users }), {
       status: 200,
       headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     });
