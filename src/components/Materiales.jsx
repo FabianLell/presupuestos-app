@@ -56,7 +56,6 @@ function IconoEliminar() {
 }
 
 export default function Materiales({ soloLectura }) {
-  console.log("Materiales soloLectura:", soloLectura);
   const [materiales, setMateriales] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [cargandoCategorias, setCargandoCategorias] = useState(true);

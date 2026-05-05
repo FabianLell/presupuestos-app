@@ -155,16 +155,7 @@ export default function Admin() {
     setError("");
 
     try {
-      console.log('=== INICIANDO ELIMINACIÓN FÍSICA COMPLETA ===');
-      console.log('UserID:', userId);
-
-      // Verificar qué usuario está realmente logueado (sugerencia del asistente IA)
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('auth.uid in session:', user?.id);
-      console.log('¿Coinciden?', user?.id === userId);
-
       // 1. Eliminar presupuestos (y sus dependencias)
-      console.log('1. Eliminando presupuestos y sus items...');
       
       // Primero obtener IDs de presupuestos para eliminar sus items
       const { data: presupuestosIds } = await supabase
@@ -173,7 +164,6 @@ export default function Admin() {
         .eq("user_id", userId);
 
       const presupuestoIdsList = presupuestosIds?.map(p => p.id) || [];
-      console.log('Presupuestos a eliminar:', presupuestoIdsList.length);
 
       // Eliminar items de presupuestos
       if (presupuestoIdsList.length > 0) {
@@ -198,7 +188,6 @@ export default function Admin() {
       if (errorPresupuestos) throw new Error(`Error al eliminar presupuestos: ${errorPresupuestos.message}`);
 
       // 2. Eliminar clientes
-      console.log('2. Eliminando clientes...');
       const { error: errorClientes } = await supabase
         .from("clientes")
         .delete()
@@ -206,7 +195,6 @@ export default function Admin() {
       if (errorClientes) throw new Error(`Error al eliminar clientes: ${errorClientes.message}`);
 
       // 3. Eliminar categorías
-      console.log('3. Eliminando categorías...');
       const { error: errorCategorias } = await supabase
         .from("categorias")
         .delete()
@@ -214,56 +202,30 @@ export default function Admin() {
       if (errorCategorias) throw new Error(`Error al eliminar categorías: ${errorCategorias.message}`);
 
       // 4. Eliminar materiales y servicios
-      console.log('4. Eliminando materiales...');
-      console.log('Verificando materiales con user_id:', userId);
       
-      // Primero verificar cuántos materiales existen con este user_id
-      const { data: materialesCheck, count: countCheck } = await supabase
+      const { error: errorMateriales } = await supabase
         .from("materiales")
-        .select("id, nombre", { count: 'exact' })
+        .delete()
         .eq("user_id", userId);
-      
-      console.log('Materiales encontrados con este user_id:', countCheck);
-      console.log('Primer material encontrado:', materialesCheck?.[0]);
-      
-      // Probar con servicio role key para ver si es problema de permisos
-      const { data: adminCheck, count: adminCount } = await supabase
-        .from("materiales")
-        .select("id, nombre", { count: 'exact' })
-        .eq("user_id", userId);
-      
-      console.log('Materiales con admin role:', adminCount);
-      console.log('Diferencia de permisos:', countCheck, 'vs', adminCount);
-      
-      const { error: errorMateriales, count: countMateriales } = await supabase
-        .from("materiales")
-        .delete({ count: 'exact' })
-        .eq("user_id", userId);
-      console.log('Materiales eliminados:', countMateriales, 'Error:', errorMateriales);
       if (errorMateriales) throw new Error(`Error al eliminar materiales: ${errorMateriales.message}`);
 
-      console.log('5. Eliminando servicios...');
-      const { error: errorServicios, count: countServicios } = await supabase
+      // 5. Eliminar servicios
+      const { error: errorServicios } = await supabase
         .from("servicios")
-        .delete({ count: 'exact' })
+        .delete()
         .eq("user_id", userId);
-      console.log('Servicios eliminados:', countServicios, 'Error:', errorServicios);
       if (errorServicios) throw new Error(`Error al eliminar servicios: ${errorServicios.message}`);
 
       // 6. Eliminar perfil
-      console.log('6. Eliminando perfil...');
       const { error: errorPerfil } = await supabase
         .from("perfil")
         .delete()
         .eq("id", userId);
       if (errorPerfil) throw new Error(`Error al eliminar perfil: ${errorPerfil.message}`);
 
-      console.log('=== DATOS ELIMINADOS CORRECTAMENTE ===');
-
       // 9. Eliminar usuario completo con service role (solución definitiva)
-      console.log('9. Eliminando usuario completo con service role...');
       const { data: sessionData } = await supabase.auth.getSession();
-      const { data: result, error: error9 } = await supabase.functions.invoke(
+      const { error: error9 } = await supabase.functions.invoke(
         "admin-delete-user-complete",
         {
           method: "POST",
@@ -273,8 +235,6 @@ export default function Admin() {
           },
         }
       );
-      
-      console.log('Resultado de eliminación completa:', result);
       
       if (error9) throw new Error(`Error al eliminar usuario completo: ${error9.message}`);
 

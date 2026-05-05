@@ -636,7 +636,6 @@ export default function Presupuestos({ perfil, soloLectura }) {
                     className="btn btn-danger"
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log("Botón eliminar presionado, ID:", p.id);
                       setConfirmEliminar(p.id);
                     }}
                   >
@@ -1582,7 +1581,7 @@ export default function Presupuestos({ perfil, soloLectura }) {
         </div>
 
         {/* MODAL CONFIRMAR ELIMINAR */}
-        {console.log("Renderizando modal, confirmEliminar:", confirmEliminar) || confirmEliminar && (
+        {confirmEliminar && (
           <div className="modal-overlay">
             <div className="modal">
               <h3>¿Eliminar presupuesto?</h3>
