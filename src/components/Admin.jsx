@@ -12,6 +12,7 @@ export default function Admin() {
   const [ultimoEstado, setUltimoEstado] = useState("ok");
   const [activando, setActivando] = useState(null);
   const [menuAbierto, setMenuAbierto] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
     cargarTodo();
@@ -82,14 +83,22 @@ export default function Admin() {
       });
       setPerfiles(mapaPerfiles);
 
-      const { data: presData } = await supabase
-        .from("presupuestos")
-        .select("user_id");
-      const mapaCant = {};
-      (presData || []).forEach((p) => {
-        mapaCant[p.user_id] = (mapaCant[p.user_id] || 0) + 1;
-      });
-      setCantPresupuestos(mapaCant);
+      // Obtener conteos de presupuestos con service_role (solución RLS)
+      const { data: budgetCounts, error: budgetError } = await supabase.functions.invoke(
+        "admin-get-budget-counts",
+        {
+          method: "POST",
+          body: {},
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      if (!budgetError && budgetCounts?.budgetCounts) {
+        setCantPresupuestos(budgetCounts.budgetCounts);
+      } else {
+        console.error('Error obteniendo conteos de presupuestos:', budgetError);
+        setCantPresupuestos({});
+      }
 
       setUltimaActualizacion(new Date());
       setUltimoEstado("ok");
@@ -103,15 +112,195 @@ export default function Admin() {
   async function cambiarEstado(userId, nuevoEstado) {
     setActivando(userId);
     setMenuAbierto(null);
-    await supabase
-      .from("perfil")
-      .update({ estado: nuevoEstado })
-      .eq("user_id", userId);
-    setPerfiles((prev) => ({
-      ...prev,
-      [userId]: { ...prev[userId], estado: nuevoEstado },
-    }));
-    setActivando(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) throw new Error("No hay sesión activa");
+
+      // Usar Edge Function con service_role para bypassear RLS
+      const { data, error } = await supabase.functions.invoke(
+        "admin-update-user-status",
+        {
+          method: "POST",
+          body: { userId, nuevoEstado },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      if (error) throw new Error(`Error al cambiar estado: ${error.message}`);
+
+      // Actualizar estado local
+      setPerfiles(prev => ({
+        ...prev,
+        [userId]: { ...prev[userId], estado: nuevoEstado }
+      }));
+
+      setUltimaActualizacion(new Date());
+      setUltimoEstado("ok");
+    } catch (error) {
+      setError(`Error al cambiar estado: ${error.message}`);
+      setUltimoEstado("error");
+      console.error("Error cambiando estado:", error);
+    } finally {
+      setActivando(null);
+    }
+  }
+
+  async function handleEliminarUsuario(userId, userEmail) {
+    if (!confirm(`¿Estás seguro de eliminar permanentemente el usuario ${userEmail}?\n\nEsta acción eliminará:\n• Todos los presupuestos\n• Todos los clientes, materiales y servicios\n• El perfil del usuario\n• La cuenta de autenticación\n\nEsta acción NO se puede deshacer.`)) {
+      return;
+    }
+
+    setActivando(userId);
+    setError("");
+
+    try {
+      console.log('=== INICIANDO ELIMINACIÓN FÍSICA COMPLETA ===');
+      console.log('UserID:', userId);
+
+      // Verificar qué usuario está realmente logueado (sugerencia del asistente IA)
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('auth.uid in session:', user?.id);
+      console.log('¿Coinciden?', user?.id === userId);
+
+      // 1. Eliminar presupuestos (y sus dependencias)
+      console.log('1. Eliminando presupuestos y sus items...');
+      
+      // Primero obtener IDs de presupuestos para eliminar sus items
+      const { data: presupuestosIds } = await supabase
+        .from("presupuestos")
+        .select("id")
+        .eq("user_id", userId);
+
+      const presupuestoIdsList = presupuestosIds?.map(p => p.id) || [];
+      console.log('Presupuestos a eliminar:', presupuestoIdsList.length);
+
+      // Eliminar items de presupuestos
+      if (presupuestoIdsList.length > 0) {
+        const { error: errorItemsM } = await supabase
+          .from("presupuesto_materiales")
+          .delete()
+          .in("presupuesto_id", presupuestoIdsList);
+        if (errorItemsM) throw new Error(`Error al eliminar items de materiales: ${errorItemsM.message}`);
+
+        const { error: errorItemsS } = await supabase
+          .from("presupuesto_servicios")
+          .delete()
+          .in("presupuesto_id", presupuestoIdsList);
+        if (errorItemsS) throw new Error(`Error al eliminar items de servicios: ${errorItemsS.message}`);
+      }
+
+      // Eliminar presupuestos
+      const { error: errorPresupuestos } = await supabase
+        .from("presupuestos")
+        .delete()
+        .eq("user_id", userId);
+      if (errorPresupuestos) throw new Error(`Error al eliminar presupuestos: ${errorPresupuestos.message}`);
+
+      // 2. Eliminar clientes
+      console.log('2. Eliminando clientes...');
+      const { error: errorClientes } = await supabase
+        .from("clientes")
+        .delete()
+        .eq("user_id", userId);
+      if (errorClientes) throw new Error(`Error al eliminar clientes: ${errorClientes.message}`);
+
+      // 3. Eliminar categorías
+      console.log('3. Eliminando categorías...');
+      const { error: errorCategorias } = await supabase
+        .from("categorias")
+        .delete()
+        .eq("user_id", userId);
+      if (errorCategorias) throw new Error(`Error al eliminar categorías: ${errorCategorias.message}`);
+
+      // 4. Eliminar materiales y servicios
+      console.log('4. Eliminando materiales...');
+      console.log('Verificando materiales con user_id:', userId);
+      
+      // Primero verificar cuántos materiales existen con este user_id
+      const { data: materialesCheck, count: countCheck } = await supabase
+        .from("materiales")
+        .select("id, nombre", { count: 'exact' })
+        .eq("user_id", userId);
+      
+      console.log('Materiales encontrados con este user_id:', countCheck);
+      console.log('Primer material encontrado:', materialesCheck?.[0]);
+      
+      // Probar con servicio role key para ver si es problema de permisos
+      const { data: adminCheck, count: adminCount } = await supabase
+        .from("materiales")
+        .select("id, nombre", { count: 'exact' })
+        .eq("user_id", userId);
+      
+      console.log('Materiales con admin role:', adminCount);
+      console.log('Diferencia de permisos:', countCheck, 'vs', adminCount);
+      
+      const { error: errorMateriales, count: countMateriales } = await supabase
+        .from("materiales")
+        .delete({ count: 'exact' })
+        .eq("user_id", userId);
+      console.log('Materiales eliminados:', countMateriales, 'Error:', errorMateriales);
+      if (errorMateriales) throw new Error(`Error al eliminar materiales: ${errorMateriales.message}`);
+
+      console.log('5. Eliminando servicios...');
+      const { error: errorServicios, count: countServicios } = await supabase
+        .from("servicios")
+        .delete({ count: 'exact' })
+        .eq("user_id", userId);
+      console.log('Servicios eliminados:', countServicios, 'Error:', errorServicios);
+      if (errorServicios) throw new Error(`Error al eliminar servicios: ${errorServicios.message}`);
+
+      // 6. Eliminar perfil
+      console.log('6. Eliminando perfil...');
+      const { error: errorPerfil } = await supabase
+        .from("perfil")
+        .delete()
+        .eq("id", userId);
+      if (errorPerfil) throw new Error(`Error al eliminar perfil: ${errorPerfil.message}`);
+
+      console.log('=== DATOS ELIMINADOS CORRECTAMENTE ===');
+
+      // 9. Eliminar usuario completo con service role (solución definitiva)
+      console.log('9. Eliminando usuario completo con service role...');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: result, error: error9 } = await supabase.functions.invoke(
+        "admin-delete-user-complete",
+        {
+          method: "POST",
+          body: { userId },
+          headers: { 
+            Authorization: `Bearer ${sessionData.session?.access_token}` 
+          },
+        }
+      );
+      
+      console.log('Resultado de eliminación completa:', result);
+      
+      if (error9) throw new Error(`Error al eliminar usuario completo: ${error9.message}`);
+
+      // Éxito: actualizar estado local
+      setUsuarios(prev => prev.filter(u => u.id !== userId));
+      setPerfiles(prev => {
+        const newPerfiles = { ...prev };
+        delete newPerfiles[userId];
+        return newPerfiles;
+      });
+      setCantPresupuestos(prev => {
+        const newCant = { ...prev };
+        delete newCant[userId];
+        return newCant;
+      });
+
+      setUltimaActualizacion(new Date());
+      setUltimoEstado("ok");
+      
+    } catch (error) {
+      setError(`Error al eliminar usuario: ${error.message}`);
+      setUltimoEstado("error");
+      console.error("Error en eliminación de usuario:", error);
+    } finally {
+      setActivando(null);
+    }
   }
 
   function getEstadoInfo(userId) {
@@ -174,9 +363,9 @@ export default function Admin() {
               background: "#1e1e1e",
               border: "1px solid #333",
               borderRadius: "8px",
-              zIndex: 100,
+              zIndex: 9999,
               minWidth: "130px",
-              overflow: "hidden",
+              overflow: "visible",
               boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
             }}
           >
@@ -264,6 +453,26 @@ export default function Admin() {
           </button>
         </div>
 
+        {/* Input de búsqueda */}
+        <div style={{ marginBottom: "1rem" }}>
+          <input
+            type="text"
+            placeholder="🔍 Buscar por email o nombre de negocio..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value.toLowerCase())}
+            style={{
+              width: "100%",
+              padding: "0.6rem 1rem",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              background: "#1e1e1e",
+              color: "#fff",
+              fontSize: "0.9rem",
+              outline: "none",
+            }}
+          />
+        </div>
+
         {error && <p className="msg-error">{error}</p>}
 
         {cargando ? (
@@ -271,15 +480,16 @@ export default function Admin() {
         ) : usuarios.length === 0 ? (
           <p style={{ color: "#888" }}>No hay usuarios para mostrar</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflow: "visible" }}>
             <table style={{ tableLayout: "fixed", width: "100%" }}>
               <colgroup>
-                <col style={{ width: "30%" }} />
-                <col style={{ width: "22%" }} />
-                <col style={{ width: "13%" }} />
-                <col style={{ width: "13%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "15%" }} />
+                <col style={{ width: "28%" }} />
+                <col style={{ width: "20%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "8%" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -289,10 +499,18 @@ export default function Admin() {
                   <th>Último acceso</th>
                   <th style={{ textAlign: "center" }}>№</th>
                   <th>Estado</th>
+                  <th style={{ textAlign: "center", position: "relative" }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {usuarios.map((u) => (
+                {usuarios
+                  .filter((u) => {
+                    if (!busqueda) return true;
+                    const email = (u.email || "").toLowerCase();
+                    const negocio = (perfiles[u.id]?.nombre_negocio || "").toLowerCase();
+                    return email.includes(busqueda) || negocio.includes(busqueda);
+                  })
+                  .map((u) => (
                   <tr key={u.id}>
                     <td style={{ fontSize: "0.82rem" }}>{u.email || "—"}</td>
                     <td style={{ fontSize: "0.82rem" }}>
@@ -315,6 +533,20 @@ export default function Admin() {
                     </td>
                     <td>
                       <DropdownEstado userId={u.id} />
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        className="btn btn-danger"
+                        onClick={() => handleEliminarUsuario(u.id, u.email)}
+                        style={{
+                          padding: "0.3rem 0.6rem",
+                          fontSize: "0.75rem",
+                          minWidth: "60px",
+                        }}
+                        title="Eliminar usuario permanentemente"
+                      >
+                        🗑️
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -17,7 +17,16 @@ export default function Login({ onShowRegistro }) {
       email,
       password,
     });
-    if (error) setError("Email o contraseña incorrectos");
+    if (error) {
+      // Detectar si el error es por email no confirmado
+      if (error.message?.includes("Email not confirmed") || 
+          error.message?.includes("email_not_confirmed") ||
+          error.message?.includes("confirm your email")) {
+        setError("Debes confirmar tu email antes de iniciar sesión. Revisá tu bandeja de entrada y haz clic en el enlace de confirmación.");
+      } else {
+        setError("Email o contraseña incorrectos");
+      }
+    }
     setCargando(false);
   }
 
