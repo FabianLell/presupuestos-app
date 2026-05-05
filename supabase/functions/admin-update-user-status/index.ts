@@ -1,14 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = [
+  "https://presupuestos-app.vercel.app",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: getCorsHeaders(req) })
   }
 
   try {
@@ -17,21 +27,21 @@ serve(async (req) => {
     if (!userId || !nuevoEstado) {
       return new Response(
         JSON.stringify({ error: 'userId y nuevoEstado son requeridos' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
     if (!['activo', 'desactivado', 'prueba'].includes(nuevoEstado)) {
       return new Response(
         JSON.stringify({ error: 'Estado no válido. Use: activo, desactivado o prueba' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
     // Verificar token y autorización
     const token = req.headers.get('Authorization')?.replace('Bearer ', '')
     if (!token) {
-      return new Response('No autorizado', { headers: corsHeaders, status: 401 })
+      return new Response('No autorizado', { headers: getCorsHeaders(req), status: 401 })
     }
 
     // Crear cliente con service role para bypassear RLS
@@ -78,7 +88,7 @@ serve(async (req) => {
         message: 'Estado actualizado correctamente',
         perfil: data
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 }
     )
 
   } catch (error) {
@@ -88,7 +98,7 @@ serve(async (req) => {
         error: error.message || 'Error interno del servidor',
         details: error
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })

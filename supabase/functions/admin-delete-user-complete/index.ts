@@ -1,23 +1,33 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = [
+  "https://presupuestos-app.vercel.app",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: getCorsHeaders(req) })
   }
 
   try {
     const { userId } = await req.json()
-    
+
     if (!userId) {
       return new Response(
         JSON.stringify({ error: 'userId es requerido' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
@@ -35,14 +45,14 @@ serve(async (req) => {
       .from('presupuestos')
       .select('id')
       .eq('user_id', userId)
-    
+
     if (presupuestos && presupuestos.length > 0) {
       const presupuestoIds = presupuestos.map(p => p.id)
       await supabase
         .from('presupuesto_materiales')
         .delete()
         .in('presupuesto_id', presupuestoIds)
-      
+
       await supabase
         .from('presupuesto_servicios')
         .delete()
@@ -117,7 +127,7 @@ serve(async (req) => {
     console.log('=== USUARIO ELIMINADO COMPLETAMENTE ===')
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         message: 'Usuario eliminado completamente',
         deleted: {
@@ -125,17 +135,17 @@ serve(async (req) => {
           servicios: countServicios
         }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 }
     )
 
   } catch (error) {
     console.error('Error en admin-delete-user-complete:', error)
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message || 'Error interno del servidor',
         details: error
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })

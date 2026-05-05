@@ -2,9 +2,6 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = [
   "https://presupuestos-app.vercel.app",
-  "https://presupuestos-app-lilac.vercel.app",
-  "https://presupro-app.vercel.app",
-  "http://localhost:5173",
 ];
 
 function getCorsHeaders(req: Request) {
